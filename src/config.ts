@@ -35,7 +35,7 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			label: 'Before you connect',
 			width: 12,
 			value:
-				'In MxU Slides, open Settings › API and turn on the Local API. The address, the port and the API key to use here are shown there. See the help for this connection for pictures of each step.',
+				'In MxU Slides, open Settings › Network & API and turn on Serve the API. Connect at shows the address and port to use here, and Default key the key. The help for this connection has pictures of each step.',
 		},
 		{
 			type: 'bonjour-device',
@@ -68,7 +68,7 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			id: 'apiKey',
 			label: 'API key',
 			description:
-				'From Settings › API in MxU Slides. An Operate key can press buttons; a View key can only show state.',
+				'From Settings › Network & API in MxU Slides. An Operate key can press buttons; a Watch key can only show state.',
 			width: 12,
 		},
 		{

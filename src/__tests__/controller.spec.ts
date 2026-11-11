@@ -475,15 +475,26 @@ describe('actions on today’s routes', () => {
 			false,
 			'a computer with no backup never took over',
 		)
-		await press('follow', { action: 'handback' })
-		await until(() => host.values.in_charge === false, 'role read back')
-		assert.equal(await feedback('follow_role', { role: 'backing_up' }), true)
 		await press('follow', { action: 'takeover' })
-		await until(() => host.values.in_charge === true, 'in charge again')
+		assert.match(host.problems().at(-1) ?? '', /Follow: Take Over, Hand Back: This computer isn't backing up another/)
+
+		// A backup that follows the booth computer: Take Over, then Hand Back.
+		fake.follow = { role: 'backingUp', name: 'Booth Mac', health: 'live' }
+		await press('follow', { action: 'takeover' })
+		await until(() => host.checks.some((ids) => ids.includes('follow_role')), 'role read back')
 		assert.equal(await feedback('follow_role', { role: 'took_over' }), true)
 		assert.equal(await feedback('follow_role', { role: 'in_charge' }), true)
+		assert.equal(host.values.in_charge, true)
+		await press('follow', { action: 'handback' })
+		await until(() => host.values.in_charge === false, 'backing up again')
+		assert.equal(await feedback('follow_role', { role: 'backing_up' }), true)
+		assert.equal(await feedback('follow_role', { role: 'in_charge' }), false)
+
+		// The booth computer whose backup took over: Take Back.
+		fake.follow = { role: 'steppedDown', name: 'Backup Mac' }
 		await press('follow', { action: 'takeback' })
 		assert.equal(fake.commands().at(-1), 'POST /v1/follow/takeback')
+		await until(() => host.values.in_charge === true, 'in charge again')
 	})
 })
 

@@ -33,7 +33,7 @@ if (values.demo) {
 	Object.assign(sermon, {
 		running: true,
 		started: true,
-		runningSince: ago(2100 - 125),
+		runningSince: ago(2100 - 165),
 		warnings: [
 			{ remainingSeconds: 180, colorHex: '#FFB826FF' },
 			{ remainingSeconds: 0, colorHex: '#FF4739FF' },
@@ -62,7 +62,7 @@ if (values.demo) {
 			playing: true,
 			looping: false,
 			position: 46,
-			duration: 130,
+			duration: 430,
 		},
 	]
 	fake.overlays = [{ id: 'overlay-lower', name: 'Lower Third', layer: 'overlays' }]

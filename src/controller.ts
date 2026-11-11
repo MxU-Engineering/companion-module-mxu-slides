@@ -170,7 +170,7 @@ export class SlidesController implements SlidesContext {
 		} catch (error) {
 			const hint =
 				error instanceof SlidesError && error.status === 403
-					? ' Use an Operate key from Settings › API in MxU Slides.'
+					? ' Use an Operate key from Settings › Network & API in MxU Slides.'
 					: ''
 			this.log('error', `${name}: ${error instanceof Error ? error.message : String(error)}${hint}`)
 		}
@@ -199,7 +199,7 @@ export class SlidesController implements SlidesContext {
 			return
 		}
 		if (!apiKey) {
-			this.#host.updateStatus(InstanceStatus.BadConfig, 'Paste the API key from Settings › API in MxU Slides')
+			this.#host.updateStatus(InstanceStatus.BadConfig, 'Paste the API key from Settings › Network & API in MxU Slides')
 			return
 		}
 		const topics = [...TOPICS, ...TOPICS_1_1]
@@ -302,7 +302,7 @@ export class SlidesController implements SlidesContext {
 		} else if (this.#scope === 'view') {
 			this.#host.updateStatus(
 				InstanceStatus.InsufficientPermissions,
-				'This API key can only view. Buttons need an Operate key from Settings › API in MxU Slides.',
+				'This is a Watch key, which can only show state. Buttons need an Operate key from Settings › Network & API in MxU Slides.',
 			)
 		} else {
 			this.#host.updateStatus(InstanceStatus.Ok)

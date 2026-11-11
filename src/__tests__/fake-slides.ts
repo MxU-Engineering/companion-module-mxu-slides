@@ -772,10 +772,21 @@ export class FakeSlides {
 				return ok
 			}
 			case 'follow':
-				if (a === 'takeover') this.follow = { role: 'inCharge', name: 'Booth Mac' }
-				else if (a === 'handback') this.follow = { role: 'backingUp', name: 'Booth Mac', health: 'live' }
-				else if (a === 'takeback') this.follow = { role: 'none' }
-				else throw notFound('No such endpoint.')
+				// Each step is refused, as Slides refuses it, unless this computer stands where it applies.
+				if (a === 'takeover') {
+					if (this.follow.role !== 'backingUp')
+						throw new HttpError(409, 'follow', "This computer isn't backing up another.")
+					this.follow = { role: 'inCharge', name: 'Booth Mac' }
+				} else if (a === 'handback') {
+					if (this.follow.role !== 'inCharge') throw new HttpError(409, 'follow', "This computer hasn't taken over.")
+					this.follow = { role: 'backingUp', name: 'Booth Mac', health: 'live' }
+				} else if (a === 'takeback') {
+					if (this.follow.role !== 'steppedDown')
+						throw new HttpError(409, 'follow', "This computer hasn't stepped down.")
+					this.follow = { role: 'none' }
+				} else {
+					throw notFound('No such endpoint.')
+				}
 				this.#fire('role')
 				return ok
 		}
