@@ -13,6 +13,14 @@ export class SlidesError extends Error {
 	}
 }
 
+/** The exchange itself failed: no connection, no answer in time, or the socket closed under it. */
+export class LinkError extends Error {
+	constructor(message: string) {
+		super(message)
+		this.name = 'LinkError'
+	}
+}
+
 export type ClientStatus =
 	| { kind: 'connecting' }
 	| { kind: 'connected'; info: ServerInfo; scope: string }
@@ -139,13 +147,13 @@ export class SlidesClient {
 	async command(method: string, path: string, body?: unknown): Promise<unknown> {
 		const socket = this.#socket
 		if (!socket || !this.#ready || socket.readyState !== WebSocket.OPEN) {
-			throw new Error('Not connected to MxU Slides')
+			throw new LinkError('Not connected to MxU Slides')
 		}
 		const id = String(this.#nextId++)
 		return new Promise<unknown>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.#pending.delete(id)
-				reject(new Error('MxU Slides did not answer in time'))
+				reject(new LinkError('MxU Slides did not answer in time'))
 			}, this.#timing.requestTimeout)
 			this.#pending.set(id, { resolve, reject, timer })
 			try {
@@ -153,7 +161,7 @@ export class SlidesClient {
 			} catch (error) {
 				clearTimeout(timer)
 				this.#pending.delete(id)
-				reject(error instanceof Error ? error : new Error(String(error)))
+				reject(new LinkError(error instanceof Error ? error.message : String(error)))
 			}
 		})
 	}
@@ -355,7 +363,7 @@ export class SlidesClient {
 		}
 		for (const pending of this.#pending.values()) {
 			clearTimeout(pending.timer)
-			pending.reject(new Error(reason))
+			pending.reject(new LinkError(reason))
 		}
 		this.#pending.clear()
 	}

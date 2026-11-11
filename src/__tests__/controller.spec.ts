@@ -34,6 +34,14 @@ describe('connecting', () => {
 		assert.equal(reads.includes('/v1/show/lock'), true, 'state without a topic is read once')
 	})
 
+	it('logs an exchange that failed as an error, where a refusal is a warning', async () => {
+		const { fake, press, host } = await connect()
+		fake.silence(true)
+		await press('clear_all', {})
+		const line = host.logs.find((one) => /Clear All: MxU Slides did not answer in time/.test(one.message))
+		assert.equal(line?.level, 'error')
+	})
+
 	it('reads each topic once from a 1.0 Slides, which sends nothing on subscribe', async () => {
 		const { host, controller, fake } = await connect({ apiVersion: '1.0' })
 		assert.equal(host.status, InstanceStatus.Ok)
@@ -497,6 +505,7 @@ describe('actions on today’s routes', () => {
 		)
 		await press('follow', { action: 'takeover' })
 		assert.match(host.problems().at(-1) ?? '', /Follow: Take Over, Hand Back: This computer isn't backing up another/)
+		assert.equal(host.logs.at(-1)?.level, 'warn', 'MxU Slides declining is a warning, not an error')
 
 		// A backup that follows the booth computer: Take Over, then Hand Back.
 		fake.follow = { role: 'backingUp', name: 'Booth Mac', health: 'live' }

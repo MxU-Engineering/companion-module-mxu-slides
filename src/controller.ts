@@ -9,7 +9,7 @@ import {
 	type LogLevel,
 } from '@companion-module/base'
 import { GetActions, type ActionsSchema } from './actions.js'
-import { SlidesClient, SlidesError, type ClientStatus, type ClientTiming } from './api/client.js'
+import { LinkError, SlidesClient, SlidesError, type ClientStatus, type ClientTiming } from './api/client.js'
 import {
 	LIBRARY_KINDS,
 	type ActionComboEntry,
@@ -172,7 +172,9 @@ export class SlidesController implements SlidesContext {
 				error instanceof SlidesError && error.status === 403
 					? ' Use an Operate key from Settings › Network & API in MxU Slides.'
 					: ''
-			this.log('error', `${name}: ${error instanceof Error ? error.message : String(error)}${hint}`)
+			// MxU Slides (or the module) declining in a sentence is a warning; an exchange that failed is an error.
+			const failed = error instanceof LinkError || (error instanceof SlidesError && error.status >= 500)
+			this.log(failed ? 'error' : 'warn', `${name}: ${error instanceof Error ? error.message : String(error)}${hint}`)
 		}
 	}
 
