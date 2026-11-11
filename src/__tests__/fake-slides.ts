@@ -272,7 +272,9 @@ export class FakeSlides {
 		}
 		const now = Date.now()
 		this.timers = [
-			this.#timer('timer-service', 'Service', 'countUp', { runningSince: new Date(now - 768_000).toISOString() }),
+			this.#timer('service_tracking.service.elapsed', 'Service', 'countUp', {
+				runningSince: new Date(now - 768_000).toISOString(),
+			}),
 			this.#timer('timer-sermon', 'Sermon', 'countdown', { durationSeconds: 2100 }),
 			this.#timer('timer-countdown', 'Countdown', 'countdown', { durationSeconds: 300 }),
 		]
@@ -790,7 +792,10 @@ export class FakeSlides {
 				break
 			}
 			case 'slide': {
-				const target = body.serviceItemId ? this.deck : DECKS.find((candidate) => candidate.id === body.presentationId)
+				// A service item brings its own presentation, whatever was cleared before.
+				const target = body.serviceItemId
+					? (this.deck ?? DECKS[0])
+					: DECKS.find((candidate) => candidate.id === body.presentationId)
 				if (!target) throw notFound('Provide serviceItemId, or a presentationId that exists.')
 				const index = Number(body.occurrence ?? body.slideIndex ?? 0)
 				if (!(index >= 0 && index < target.slideCount)) {
@@ -798,7 +803,7 @@ export class FakeSlides {
 				}
 				this.deck = target
 				this.slideIndex = index
-				if (!body.serviceItemId) this.serviceItemId = undefined
+				this.serviceItemId = typeof body.serviceItemId === 'string' ? body.serviceItemId : undefined
 				break
 			}
 			case 'clear': {
@@ -936,8 +941,9 @@ export class FakeSlides {
 				need11()
 				const seconds = Number(body.seconds)
 				if (!Number.isFinite(seconds)) throw badRequest('Provide seconds.')
-				if (id === 'timer-service')
-					throw new HttpError(409, 'permanent_timer', 'A service-tracking timer cannot be adjusted.')
+				if (id.startsWith('service_tracking.')) {
+					throw new HttpError(409, 'permanent_timer', 'A Service Tracking timer cannot be adjusted.')
+				}
 				const length = Math.max(this.#elapsed(timer), (timer.durationSeconds ?? 0) + seconds)
 				timer.durationSeconds = length
 				// Before the timer is started the change is its new length; while it runs, it is for this run only.

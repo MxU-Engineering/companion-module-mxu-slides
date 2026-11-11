@@ -1,4 +1,5 @@
 import type { CompanionActionDefinitions } from '@companion-module/base'
+import type { LockStatus, MidiDeviceStatus } from '../api/types.js'
 import { Choices, ON_OFF_TOGGLE, resolveToggle, text, type SlidesContext } from '../context.js'
 
 type CaptureOptions = { mode: string; preset: string }
@@ -210,9 +211,11 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 			],
 			callback: async ({ options }) => {
 				const device = text(options.device)
-				const current = !!ctx.state.midi.find((candidate) => candidate.id === device)?.enabled
-				const enabled = resolveToggle(options.mode, current)
 				await ctx.run('MIDI device: On / Off', undefined, async (client) => {
+					// Slides does not push its MIDI devices, so a toggle asks for the state it is toggling.
+					const devices = await client.get<MidiDeviceStatus[]>('/v1/midi/devices')
+					const current = !!devices.find((candidate) => candidate.id === device)?.enabled
+					const enabled = resolveToggle(options.mode, current)
 					await client.post(`/v1/midi/devices/${encodeURIComponent(device)}/enabled`, { enabled })
 					ctx.refresh('midi')
 				})
@@ -237,9 +240,13 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 			],
 			callback: async ({ options }) => {
 				const action = text(options.action)
-				const body =
-					action === 'pull' ? { pullUpdates: true } : { locked: resolveToggle(action, !!ctx.state.lock?.locked) }
 				await ctx.run('Lock: On, Off, Pull Updates', undefined, async (client) => {
+					let body: object = { pullUpdates: true }
+					if (action !== 'pull') {
+						// The Lock also turns itself on and off with the service, without a push: read it first.
+						const current = action === 'toggle' ? (await client.get<LockStatus>('/v1/show/lock')).locked : false
+						body = { locked: resolveToggle(action, current) }
+					}
 					await client.post('/v1/show/lock', body)
 					ctx.refresh('lock')
 				})

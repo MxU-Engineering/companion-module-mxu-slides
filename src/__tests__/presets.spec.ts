@@ -236,15 +236,18 @@ describe('presets', () => {
 		assert.ok(ids.includes('trigger_trigger-preservice'))
 	})
 
-	it('gives a permanent Service Tracking timer no add or subtract buttons', () => {
-		const tracked = filled()
-		tracked.apply('timers', [{ ...tracked.timers[0], id: 'service_tracking.elapsed', name: 'Service Elapsed' }])
-		const ids = Object.keys(GetPresets(tracked).presets).filter((id) => id.startsWith('timer_'))
-		assert.deepEqual(ids, [
-			'timer_service_tracking.elapsed_display',
-			'timer_service_tracking.elapsed_start',
-			'timer_service_tracking.elapsed_reset',
-		])
+	it('gives a permanent Service Tracking timer a display only, with nothing to press', () => {
+		const ids = Object.keys(presets).filter((id) => id.startsWith('timer_service_tracking.'))
+		assert.deepEqual(ids, ['timer_service_tracking.service.elapsed_display'])
+		const [rich, plain] = variants(presets[ids[0]])
+		assert.deepEqual(rich.steps, [{ down: [], up: [] }])
+		assert.deepEqual(plain.steps, [{ down: [], up: [] }])
+		const timers = sections.find((section) => section.id === 'timers')
+		const groups = (timers?.definitions ?? []).filter((definition) => typeof definition !== 'string')
+		assert.deepEqual(
+			groups.map((group) => group.name),
+			['Sermon', 'Countdown', 'Service Tracking'],
+		)
 	})
 
 	it('still offers the fixed presets before anything is connected', () => {

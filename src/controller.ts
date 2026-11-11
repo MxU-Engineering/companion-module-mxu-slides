@@ -82,6 +82,9 @@ const TOPICS_1_1 = ['inputs', 'capture', 'mixer', 'serviceTracking']
 const PICTURE_WIDTH = 288
 const PICTURE_RETRIES = 3
 const PICTURE_RETRY_MS = 700
+const PICTURE_CACHE = 6
+/** A run of quick slide changes ends in one read of the Lock, not one per slide. */
+const LOCK_READ_MS = 300
 /** How long a burst of changes is gathered before feedbacks and variables are updated once. */
 const FLUSH_MS = 15
 const REDEFINE_MS = 150
@@ -106,6 +109,7 @@ export class SlidesController implements SlidesContext {
 	#redefineTimer: NodeJS.Timeout | undefined
 	#libraryTimer: NodeJS.Timeout | undefined
 	#snapshotTimer: NodeJS.Timeout | undefined
+	#lockTimer: NodeJS.Timeout | undefined
 	#clock: NodeJS.Timeout | undefined
 	#sent: Record<string, VariableValue> = {}
 	#shape = ''
@@ -115,6 +119,7 @@ export class SlidesController implements SlidesContext {
 	#scope = ''
 	#warned = new Set<string>()
 	#pictureTimers = new Set<NodeJS.Timeout>()
+	#pictureCache = new Map<string, string>()
 	#librarySnapshotDue = false
 
 	constructor(host: ModuleHost, timing?: Partial<ClientTiming>) {
@@ -224,13 +229,25 @@ export class SlidesController implements SlidesContext {
 	#disconnect(): void {
 		this.#client?.stop()
 		this.#client = undefined
-		for (const timer of [this.#flushTimer, this.#redefineTimer, this.#libraryTimer, this.#snapshotTimer]) {
+		for (const timer of [
+			this.#flushTimer,
+			this.#redefineTimer,
+			this.#libraryTimer,
+			this.#snapshotTimer,
+			this.#lockTimer,
+		]) {
 			clearTimeout(timer)
 		}
 		for (const timer of this.#pictureTimers) clearTimeout(timer)
 		this.#pictureTimers.clear()
 		clearInterval(this.#clock)
-		this.#flushTimer = this.#redefineTimer = this.#libraryTimer = this.#snapshotTimer = this.#clock = undefined
+		this.#flushTimer =
+			this.#redefineTimer =
+			this.#libraryTimer =
+			this.#snapshotTimer =
+			this.#lockTimer =
+			this.#clock =
+				undefined
 		this.#pending.clear()
 	}
 
@@ -239,6 +256,7 @@ export class SlidesController implements SlidesContext {
 		this.state.reset()
 		this.#seenTopics.clear()
 		this.#pictureVersions = {}
+		this.#pictureCache.clear()
 		this.#warned.clear()
 		clearInterval(this.#clock)
 		this.#clock = undefined
@@ -370,7 +388,11 @@ export class SlidesController implements SlidesContext {
 			}
 			// The push says only that the library changed; gather a burst, then read the lists once.
 			clearTimeout(this.#libraryTimer)
-			this.#libraryTimer = setTimeout(() => void this.#readLibrary(client), LIBRARY_MS)
+			this.#libraryTimer = setTimeout(() => {
+				void this.#readLibrary(client)
+				// Updates held behind the Lock arrive with library changes.
+				this.refresh('lock')
+			}, LIBRARY_MS)
 			return
 		}
 		if (topic === 'fires') {
@@ -397,6 +419,11 @@ export class SlidesController implements SlidesContext {
 		const aspects = [...this.#pending]
 		this.#pending.clear()
 		if (aspects.includes('slide') || aspects.includes('next')) this.#updatePictures()
+		// The Lock follows the service by itself and Slides does not push it: read it when the show moves.
+		if (aspects.includes('slide') || aspects.includes('service')) {
+			clearTimeout(this.#lockTimer)
+			this.#lockTimer = setTimeout(() => this.refresh('lock'), LOCK_READ_MS)
+		}
 
 		const shape = shapeKey(this.state)
 		if (shape !== this.#shape) {
@@ -479,6 +506,13 @@ export class SlidesController implements SlidesContext {
 				this.changed(this.state.applyPicture(which, null))
 				continue
 			}
+			// A version names one picture whether the slide is live or next, so the picture that was
+			// next a moment ago is reused when its slide goes live.
+			const known = this.#pictureCache.get(version)
+			if (known !== undefined) {
+				this.changed(this.state.applyPicture(which, known))
+				continue
+			}
 			this.#fetchPicture(client, which, version, 0)
 		}
 	}
@@ -489,6 +523,7 @@ export class SlidesController implements SlidesContext {
 		client
 			.fetchImage(`/v1/show/thumbnail/${which}?width=${PICTURE_WIDTH}`)
 			.then((picture) => {
+				if (picture !== null) this.#remember(version, picture)
 				// A newer slide may have gone live while this one was on its way.
 				if (current()) this.changed(this.state.applyPicture(which, picture))
 			})
@@ -504,6 +539,16 @@ export class SlidesController implements SlidesContext {
 				}
 				this.#warnOnce(`picture-${which}`, 'debug', `Slide picture: ${String(error)}`)
 			})
+	}
+
+	/** Keeps the last few pictures by version; the oldest goes first. */
+	#remember(version: string, picture: string): void {
+		this.#pictureCache.delete(version)
+		this.#pictureCache.set(version, picture)
+		for (const oldest of this.#pictureCache.keys()) {
+			if (this.#pictureCache.size <= PICTURE_CACHE) break
+			this.#pictureCache.delete(oldest)
+		}
 	}
 
 	#warnOnce(key: string, level: LogLevel, message: string): void {

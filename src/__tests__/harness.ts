@@ -151,7 +151,8 @@ export async function rig(
 	}
 	await until(() => controller.state.info !== undefined && controller.state.show !== undefined, 'the first state')
 	await until(() => controller.state.library.presentations.length > 0, 'the library')
-	await settle()
+	// The first state is followed by one read of the Lock, a moment later.
+	await sleep(480)
 
 	const context = { type: 'action', signal: new AbortController().signal, setCustomVariableValue: () => undefined }
 	return {

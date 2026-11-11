@@ -181,18 +181,30 @@ describe('updates', () => {
 		assert.equal(host.valueUpdates.flat().includes('deck_name'), false)
 	})
 
-	it('fetches a slide picture only when its version changes', async () => {
+	it('fetches a slide picture only when its version changes, and reuses the one that was next', async () => {
 		const { fake, controller, settle } = await connect({}, { pictures: true })
-		await until(() => controller.state.pictures.live !== null, 'the live picture')
+		await until(
+			() => controller.state.pictures.live !== null && controller.state.pictures.next !== null,
+			'both pictures',
+		)
 		const pictures = (): number => fake.requests.filter((request) => request.path.includes('/thumbnail/')).length
 		assert.equal(pictures(), 2)
 		fake.overlays = [{ id: 'overlay-bug', name: 'Logo Bug' }]
 		fake.push('show')
 		await settle()
 		assert.equal(pictures(), 2, 'the same slide is not fetched again')
-		fake.slideIndex = 5
+
+		const wasNext = controller.state.pictures.next
+		fake.slideIndex = 3
 		fake.push('show')
-		await until(() => pictures() === 4, 'new pictures')
+		await until(() => pictures() === 3, 'the new next picture')
+		await settle()
+		assert.equal(controller.state.pictures.live, wasNext, 'the picture that was next is the live one now')
+		assert.equal(pictures(), 3, 'only the new next slide was fetched')
+
+		fake.slideIndex = 9
+		fake.push('show')
+		await until(() => pictures() === 5, 'two new pictures after a jump')
 		fake.deck = undefined
 		fake.push('show')
 		await until(() => controller.state.pictures.live === null, 'picture cleared')
@@ -340,7 +352,7 @@ describe('actions on today’s routes', () => {
 		assert.equal(await feedback('timer_value', { timer: 'timer-sermon', field: 'time' }), '35:00')
 		assert.equal(await feedback('timer_value', { timer: 'timer-sermon', field: 'progress' }), 0)
 		assert.equal(host.values.timer_sermon_length, 2100)
-		assert.equal(await feedback('timer_state', { timer: 'timer-service', state: 'running' }), true)
+		assert.equal(await feedback('timer_state', { timer: 'service_tracking.service.elapsed', state: 'running' }), true)
 		assert.match(String(host.values.timer_service), /^12:(4[89]|5\d)$/)
 	})
 
@@ -446,6 +458,16 @@ describe('actions on today’s routes', () => {
 		await press('lock', { action: 'pull' })
 		assert.deepEqual(fake.lastBody('/v1/show/lock'), { pullUpdates: true })
 		await until(() => host.values.updates_waiting === 0, 'updates pulled')
+
+		// The Lock turns itself on with the service and says nothing: a toggle reads it first.
+		fake.lock = { ...fake.lock, locked: true, automatic: true }
+		await press('lock', { action: 'toggle' })
+		assert.deepEqual(fake.lastBody('/v1/show/lock'), { locked: false })
+		await until(() => host.values.lock === false, 'lock off')
+		fake.lock = { ...fake.lock, locked: true, automatic: true }
+		fake.slideIndex = 5
+		fake.push('show')
+		await until(() => host.values.lock === true, 'the Lock read again when the show moved')
 
 		assert.equal(await feedback('follow_role', { role: 'in_charge' }), true)
 		assert.equal(
@@ -574,10 +596,10 @@ describe('actions that need a newer MxU Slides', () => {
 
 	it('reports an adjustment Slides refuses against that action only', async () => {
 		const { press, host } = await connect()
-		await press('timer_adjust', { timer: 'timer-service', direction: 'add', amount: '30' })
+		await press('timer_adjust', { timer: 'service_tracking.service.elapsed', direction: 'add', amount: '30' })
 		assert.match(
 			host.problems().at(-1) ?? '',
-			/Timer: Add or subtract time: A service-tracking timer cannot be adjusted/,
+			/Timer: Add or subtract time: A Service Tracking timer cannot be adjusted/,
 		)
 		await press('timer_adjust', { timer: 'timer-sermon', direction: 'add', amount: 'soon' })
 		assert.match(host.problems().at(-1) ?? '', /"soon" is not an amount of time/)
@@ -698,7 +720,7 @@ describe('what is defined', () => {
 		assert.deepEqual(choices('media_fire', 'media')[0], { id: 'media-welcome', label: 'Loops / Welcome Loop' })
 		assert.deepEqual(
 			choices('timer', 'timer').map((choice) => choice.id),
-			['timer-service', 'timer-sermon', 'timer-countdown'],
+			['service_tracking.service.elapsed', 'timer-sermon', 'timer-countdown'],
 		)
 		assert.equal(choices('slide_goto', 'deck')[0].id, 'live')
 		assert.deepEqual(choices('music_item', 'item'), [{ id: 'audio-sting', label: 'Sting' }])

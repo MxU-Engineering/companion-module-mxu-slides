@@ -42,8 +42,8 @@ export const ADJUST_STEPS: [amount: string, text: string, key: string][] = [
 const BAR = { x: 8, y: 56, width: 56, height: 5 }
 
 /** The timer on a button: name, digits and a bar. Amber bar in warning, red button when over. */
-function display(timer: string, variable: string): Preset {
-	const steps = press({ actionId: 'timer', options: { timer, action: 'toggle' } })
+function display(timer: string, variable: string, controllable: boolean): Preset {
+	const steps = controllable ? press({ actionId: 'timer', options: { timer, action: 'toggle' } }) : press()
 	const red = FAMILY.clear.bright
 	const state = (wanted: string): { feedbackId: 'timer_state'; options: { timer: string; state: string } } => ({
 		feedbackId: 'timer_state',
@@ -132,12 +132,27 @@ function adjust(timer: string, add: boolean, amount: string, text: string): Pres
 	)
 }
 
+/**
+ * The Service Tracking timers are permanent: MxU Slides runs them from the service itself, and
+ * they take no Start, Pause, Reset or adjustment from outside. They get a display button only.
+ */
+export function isPermanentTimer(id: string): boolean {
+	return id.startsWith('service_tracking.')
+}
+
 export function timerPresets(state: SlidesState): { sections: Section[]; presets: Presets } {
 	const presets: Presets = {}
-	const groups = state.timers.map((timer) => {
+	const groups: { id: string; type: 'simple'; name: string; description?: string; presets: string[] }[] = []
+	const permanent: string[] = []
+	for (const timer of state.timers) {
 		const id = `timer_${timer.id}`
+		if (isPermanentTimer(timer.id)) {
+			presets[`${id}_display`] = display(timer.id, timerVariable(state, timer.id), false)
+			permanent.push(`${id}_display`)
+			continue
+		}
 		const ids = [`${id}_display`, `${id}_start`, `${id}_reset`]
-		presets[`${id}_display`] = display(timer.id, timerVariable(state, timer.id))
+		presets[`${id}_display`] = display(timer.id, timerVariable(state, timer.id), true)
 		presets[`${id}_start`] = startPause(timer.id)
 		presets[`${id}_reset`] = tile({
 			name: 'Timer: Reset',
@@ -146,22 +161,29 @@ export function timerPresets(state: SlidesState): { sections: Section[]; presets
 			label: 'Reset',
 			steps: press({ actionId: 'timer', options: { timer: timer.id, action: 'reset' } }),
 		})
-		// The permanent Service Tracking timers take no adjustments.
-		const adjustable = !timer.id.startsWith('service_tracking.')
-		for (const add of adjustable ? [true, false] : []) {
+		for (const add of [true, false]) {
 			for (const [amount, text, key] of ADJUST_STEPS) {
 				const presetId = `${id}_${add ? 'add' : 'subtract'}_${key}`
 				presets[presetId] = adjust(timer.id, add, amount, text)
 				ids.push(presetId)
 			}
 		}
-		return {
+		groups.push({
 			id,
-			type: 'simple' as const,
+			type: 'simple',
 			name: timer.folderName ? `${timer.folderName} / ${timer.name}` : timer.name,
 			presets: ids,
-		}
-	})
+		})
+	}
+	if (permanent.length) {
+		groups.push({
+			id: 'timers_service_tracking',
+			type: 'simple',
+			name: 'Service Tracking',
+			description: 'MxU Slides runs these from the service itself, so each is a display only.',
+			presets: permanent,
+		})
+	}
 	if (!groups.length) return { sections: [], presets }
 	return {
 		sections: [
