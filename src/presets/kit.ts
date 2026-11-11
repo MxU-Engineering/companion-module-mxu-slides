@@ -267,10 +267,11 @@ export function tile(spec: TileSpec): Preset {
 	const filled = look === 'always'
 	const plainText = spec.plainLabel ?? (typeof spec.label === 'string' ? spec.label : spec.name)
 
+	// A tile carries only the glyphs it can show: the family-colored one while dark, the ink one while filled.
 	const elements: Element[] = [
 		tileBase(filled ? family.bright : TILE, filled ? family.bright : TILE_EDGE),
-		glyph('glyph', `${spec.icon}.${spec.family}`, !filled),
-		glyph('glyphLit', `${spec.icon}.${spec.family}.ink`, filled),
+		...(filled ? [] : [glyph('glyph', `${spec.icon}.${spec.family}`)]),
+		...(look === 'plain' ? [] : [glyph('glyphLit', `${spec.icon}.${spec.family}.ink`, filled)]),
 		caption(spec.label, filled ? family.ink : WHITE),
 	]
 	const feedbacks: LayeredFeedback[] = []

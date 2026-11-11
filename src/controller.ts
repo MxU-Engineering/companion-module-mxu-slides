@@ -115,6 +115,7 @@ export class SlidesController implements SlidesContext {
 	#scope = ''
 	#warned = new Set<string>()
 	#pictureTimers = new Set<NodeJS.Timeout>()
+	#librarySnapshotDue = false
 
 	constructor(host: ModuleHost, timing?: Partial<ClientTiming>) {
 		this.#host = host
@@ -294,6 +295,7 @@ export class SlidesController implements SlidesContext {
 		if (client !== this.#client) return
 		this.state.info = info
 		this.state.scope = this.#scope
+		this.#librarySnapshotDue = snapshots
 		this.log('info', `Connected to MxU Slides on ${info.stationName ?? info.name} (API ${info.apiVersion})`)
 
 		const readTopics = (): void => {
@@ -361,6 +363,11 @@ export class SlidesController implements SlidesContext {
 	#event(client: SlidesClient, topic: string, data: unknown): void {
 		if (client !== this.#client) return
 		if (topic === 'library') {
+			// The first frame after subscribing is the state on subscribe; the lists were read on connect.
+			if (this.#librarySnapshotDue) {
+				this.#librarySnapshotDue = false
+				return
+			}
 			// The push says only that the library changed; gather a burst, then read the lists once.
 			clearTimeout(this.#libraryTimer)
 			this.#libraryTimer = setTimeout(() => void this.#readLibrary(client), LIBRARY_MS)

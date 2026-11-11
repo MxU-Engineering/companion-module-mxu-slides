@@ -257,6 +257,7 @@ export class FakeSlides {
 	#sockets = new Set<Socket>()
 	#beat = 0
 	#frozen = false
+	#silent = false
 	#meterTimer: NodeJS.Timeout | undefined
 	#pictureSeed = 1
 	#fireSeq = 0
@@ -310,6 +311,11 @@ export class FakeSlides {
 		this.#sockets.clear()
 	}
 
+	/** Stops answering anything on the socket, as a computer that fell off the network would. */
+	silence(silent: boolean): void {
+		this.#silent = silent
+	}
+
 	/** Makes the app look frozen: it still answers pings, but its beat stops moving. */
 	freeze(frozen: boolean): void {
 		this.#frozen = frozen
@@ -332,7 +338,7 @@ export class FakeSlides {
 	}
 
 	lastBody(path: string): unknown {
-		return this.requests.findLast((request) => request.path === path)?.body
+		return this.requests.findLast((request) => request.path === path && request.method !== 'GET')?.body
 	}
 
 	/** One topic's state, in the shape its GET returns. */
@@ -1178,6 +1184,7 @@ export class FakeSlides {
 			this.#send(socket, { type: 'error', message: 'Unparseable frame.' })
 			return
 		}
+		if (this.#silent) return
 		switch (frame.type) {
 			case 'ping':
 				if (!this.#frozen) this.#beat++

@@ -163,6 +163,18 @@ export function mediaPresets(state: SlidesState): { sections: Section[]; presets
 		})
 		return id
 	})
+	const inputIds = state.videoInputs.map((input) => {
+		const id = `video_input_${input.id}`
+		presets[id] = tile({
+			name: `Video Input: ${input.name}`,
+			family: 'media',
+			icon: 'camera',
+			label: input.name,
+			steps: press({ actionId: 'video_input_fire', options: { input: input.id } }),
+			lit: { feedbackId: 'video_input_live', options: { input: input.id } },
+		})
+		return id
+	})
 	const playlistIds = state.library.playlists.map((playlist) => {
 		const id = `playlist_${playlist.id}`
 		presets[id] = tile({
@@ -184,6 +196,14 @@ export function mediaPresets(state: SlidesState): { sections: Section[]; presets
 			definitions: ['video_play_pause', 'video_restart', 'video_skip_back', 'video_skip_forward'],
 		},
 	]
+	if (inputIds.length) {
+		sections.push({
+			id: 'video_inputs',
+			name: 'Video Inputs',
+			description: 'One button per camera, NDI or Blackmagic input: press to put it on screen. Lit while it is live.',
+			definitions: inputIds,
+		})
+	}
 	if (overlayIds.length) {
 		sections.push({
 			id: 'overlays',

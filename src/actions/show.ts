@@ -72,8 +72,8 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 				},
 			],
 			callback: async ({ options }) => {
-				const index = Math.round(number(options.slide, 1)) - 1
-				if (index < 0) {
+				const index = Math.round(number(options.slide, Number.NaN)) - 1
+				if (!(index >= 0)) {
 					ctx.log('warn', `Slide: Go to slide: "${text(options.slide)}" is not a slide number. The first slide is 1.`)
 					return
 				}
