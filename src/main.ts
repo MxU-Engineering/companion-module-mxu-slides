@@ -1,65 +1,47 @@
-import { InstanceBase, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
-import { GetConfigFields, type ModuleConfig } from './config.js'
-import { UpdateVariableDefinitions, type VariablesSchema } from './variables.js'
+import { InstanceBase, type SomeCompanionConfigField } from '@companion-module/base'
+import type { ActionsSchema } from './actions.js'
+import { GetConfigFields, type ModuleConfig, type ModuleSecrets } from './config.js'
+import { SlidesController } from './controller.js'
+import type { CompositeElementsSchema } from './elements.js'
+import type { FeedbacksSchema } from './feedbacks.js'
 import { UpgradeScripts } from './upgrades.js'
-import { UpdateActions, type ActionsSchema } from './actions.js'
-import { UpdateFeedbacks, type FeedbacksSchema } from './feedbacks.js'
-import { UpdatePresets } from './presets.js'
+import type { VariablesSchema } from './variables.js'
 
 export type ModuleSchema = {
 	config: ModuleConfig
-	secrets: undefined
+	secrets: ModuleSecrets
 	actions: ActionsSchema
 	feedbacks: FeedbacksSchema
 	variables: VariablesSchema
+	compositeElements: CompositeElementsSchema
 }
 
 export { UpgradeScripts }
 
+/**
+ * The connection to one MxU Slides. Companion's side of things lives here; everything the
+ * module does is in the controller.
+ */
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
-	config!: ModuleConfig // Setup in init()
+	readonly #controller = new SlidesController(this)
 
 	constructor(internal: unknown) {
 		super(internal)
 	}
 
-	async init(config: ModuleConfig): Promise<void> {
-		this.config = config
-
-		this.updateStatus(InstanceStatus.Ok)
-
-		this.updateActions() // export actions
-		this.updateFeedbacks() // export feedbacks
-		this.updatePresets() // export Presets
-		this.updateVariableDefinitions() // export variable definitions
+	async init(config: ModuleConfig, _isFirstInit: boolean, secrets: ModuleSecrets): Promise<void> {
+		this.#controller.start(config, secrets)
 	}
-	// When module gets deleted
+
 	async destroy(): Promise<void> {
-		this.log('debug', 'destroy')
+		this.#controller.stop()
 	}
 
-	async configUpdated(config: ModuleConfig): Promise<void> {
-		this.config = config
+	async configUpdated(config: ModuleConfig, secrets: ModuleSecrets): Promise<void> {
+		this.#controller.restart(config, secrets)
 	}
 
-	// Return config fields for web config
 	getConfigFields(): SomeCompanionConfigField[] {
 		return GetConfigFields()
-	}
-
-	updateActions(): void {
-		UpdateActions(this)
-	}
-
-	updateFeedbacks(): void {
-		UpdateFeedbacks(this)
-	}
-
-	updatePresets(): void {
-		UpdatePresets(this)
-	}
-
-	updateVariableDefinitions(): void {
-		UpdateVariableDefinitions(this)
 	}
 }

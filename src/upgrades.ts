@@ -1,16 +1,10 @@
 import type { CompanionStaticUpgradeScript } from '@companion-module/base'
-import type { ModuleConfig } from './config.js'
+import type { ModuleConfig, ModuleSecrets } from './config.js'
 
-export const UpgradeScripts: CompanionStaticUpgradeScript<ModuleConfig>[] = [
-	/*
-	 * Place your upgrade scripts here
-	 * Remember that once it has been added it cannot be removed!
-	 */
-	// function (context, props) {
-	// 	return {
-	// 		updatedConfig: null,
-	// 		updatedActions: [],
-	// 		updatedFeedbacks: [],
-	// 	}
-	// },
-]
+/**
+ * Upgrade scripts run in order when a saved connection or button was made by an older version
+ * of this module. A script that has shipped is never removed or reordered.
+ *
+ * 1.0.0 is the first version, so there is nothing to upgrade from yet.
+ */
+export const UpgradeScripts: CompanionStaticUpgradeScript<ModuleConfig, ModuleSecrets>[] = []

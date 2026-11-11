@@ -1,0 +1,208 @@
+import type { CompanionPresetSection } from '@companion-module/base'
+import type { ModuleSchema } from '../main.js'
+import type { SlidesState } from '../state.js'
+import { DIM, FAMILY, TRACK, WHITE } from '../style.js'
+import {
+	alternatives,
+	box,
+	caption,
+	expression,
+	glyph,
+	LABEL,
+	label,
+	layered,
+	local,
+	localValue,
+	pct,
+	press,
+	set,
+	simple,
+	tile,
+	tileBase,
+	when,
+	whenSimple,
+	type Preset,
+} from './kit.js'
+
+type Presets = Record<string, Preset>
+type Section = CompanionPresetSection<ModuleSchema>
+
+const BAR = { x: 8, y: 52, width: 56, height: 4 }
+
+/** Play / Pause with the time left, a progress bar and the video's name. */
+function transport(): Preset {
+	const steps = press({ actionId: 'video_transport', options: { target: 'any', action: 'toggle', seconds: '0' } })
+	const playing = { feedbackId: 'video_playing' as const, options: { target: 'any' } }
+	const hasVideo = `${local('name')} != ''`
+	const elements = [
+		tileBase(),
+		glyph('idle', 'play.media.small.dim', expression(`!(${hasVideo})`)),
+		glyph('play', 'play.media.small', expression(hasVideo)),
+		glyph('pause', 'pause.media.small', false),
+		label('remaining', expression(local('remaining')), 4, 37, 64, 14, WHITE, { size: 96 }),
+		box('track', BAR.x, BAR.y, BAR.width, BAR.height, TRACK, { radius: 2, name: 'Bar track' }),
+		box('bar', BAR.x, BAR.y, expression(`${local('progress')} * ${pct(BAR.width)}`), BAR.height, FAMILY.media.bright, {
+			radius: 2,
+			name: 'Bar',
+		}),
+		label('name', expression(local('name')), 4, 58.5, 64, 11, DIM, { size: 86, weight: 'normal' }),
+	]
+	const variables = [
+		localValue('name', 'video_value', { target: 'any', field: 'name' }),
+		localValue('remaining', 'video_value', { target: 'any', field: 'remaining' }),
+		localValue('progress', 'video_value', { target: 'any', field: 'progress' }),
+	]
+	return alternatives(
+		layered(
+			'Video: Play / Pause',
+			elements,
+			steps,
+			[when(playing, [set('idle', 'enabled', false), set('play', 'enabled', false), set('pause', 'enabled', true)])],
+			variables,
+		),
+		simple('Video: Play / Pause', `$(${LABEL}:video_name)\\n-$(${LABEL}:video_remaining)`, steps, [
+			whenSimple(playing, { color: FAMILY.media.bright }),
+		]),
+	)
+}
+
+/** Play / Pause for music: the glyph says what a press will do. */
+function musicPlayPause(): Preset {
+	const steps = press({ actionId: 'music_transport', options: { action: 'playPause', position: '0' } })
+	const playing = { feedbackId: 'music_playing' as const, options: { playlist: 'any' } }
+	return alternatives(
+		layered(
+			'Music: Play / Pause',
+			[tileBase(), glyph('glyph', 'play.audio'), glyph('glyphLit', 'pause.audio', false), caption('Play', WHITE)],
+			steps,
+			[
+				when(playing, [
+					set('glyph', 'enabled', false),
+					set('glyphLit', 'enabled', true),
+					set('caption', 'text', 'Pause'),
+				]),
+			],
+		),
+		simple('Music: Play / Pause', 'Music\\nPlay', steps, [
+			whenSimple(playing, { text: 'Music\\nPause', color: FAMILY.audio.bright }),
+		]),
+	)
+}
+
+export function mediaPresets(state: SlidesState): { sections: Section[]; presets: Presets } {
+	const skip = (seconds: string): ReturnType<typeof press> =>
+		press({ actionId: 'video_transport', options: { target: 'any', action: 'skip', seconds } })
+	const presets: Presets = {
+		video_play_pause: transport(),
+		video_restart: tile({
+			name: 'Video: Restart',
+			family: 'media',
+			icon: 'skip-back',
+			label: 'Restart',
+			steps: press({ actionId: 'video_transport', options: { target: 'any', action: 'reset', seconds: '0' } }),
+		}),
+		video_skip_back: tile({
+			name: 'Video: Skip back 10 seconds',
+			family: 'media',
+			icon: 'rewind',
+			label: '-10s',
+			steps: skip('-10'),
+		}),
+		video_skip_forward: tile({
+			name: 'Video: Skip forward 10 seconds',
+			family: 'media',
+			icon: 'fast-forward',
+			label: '+10s',
+			steps: skip('10'),
+		}),
+		music_play_pause: musicPlayPause(),
+		music_next: tile({
+			name: 'Music: Next track',
+			family: 'audio',
+			icon: 'skip-forward',
+			label: 'Next',
+			steps: press({ actionId: 'music_transport', options: { action: 'next', position: '0' } }),
+		}),
+		music_stop: tile({
+			name: 'Music: Stop',
+			family: 'audio',
+			icon: 'square',
+			label: 'Stop',
+			steps: press({ actionId: 'music_transport', options: { action: 'stop', position: '0' } }),
+		}),
+		alert_hide: tile({
+			name: 'Alert: Hide',
+			family: 'conf',
+			icon: 'bell-off',
+			label: 'Hide Alert',
+			steps: press({ actionId: 'alert_hide', options: {} }),
+		}),
+	}
+
+	const overlayIds = state.library.overlays.map((overlay) => {
+		const id = `overlay_${overlay.id}`
+		presets[id] = tile({
+			name: `Overlay: ${overlay.name}`,
+			family: 'media',
+			icon: 'layers',
+			label: overlay.name,
+			steps: press({ actionId: 'overlay', options: { overlay: overlay.id, mode: 'toggle' } }),
+			lit: { feedbackId: 'overlay_live', options: { overlay: overlay.id } },
+		})
+		return id
+	})
+	const alertIds = state.library['alert-presets'].map((preset) => {
+		const id = `alert_${preset.id}`
+		presets[id] = tile({
+			name: `Alert: ${preset.name}`,
+			family: 'conf',
+			icon: 'message-square-text',
+			label: preset.name,
+			steps: press({ actionId: 'alert_preset', options: { preset: preset.id, tokens: '' } }),
+			lit: { feedbackId: 'alert_showing', options: { match: 'preset', preset: preset.id, text: '' } },
+		})
+		return id
+	})
+	const playlistIds = state.library.playlists.map((playlist) => {
+		const id = `playlist_${playlist.id}`
+		presets[id] = tile({
+			name: `Music: ${playlist.name}`,
+			family: 'audio',
+			icon: 'list-music',
+			label: playlist.name,
+			steps: press({ actionId: 'music_playlist', options: { playlist: playlist.id } }),
+			lit: { feedbackId: 'music_playing', options: { playlist: playlist.id } },
+		})
+		return id
+	})
+
+	const sections: Section[] = [
+		{
+			id: 'media',
+			name: 'Media',
+			description: 'The video that is playing: Play / Pause with the time left, Restart and Skip.',
+			definitions: ['video_play_pause', 'video_restart', 'video_skip_back', 'video_skip_forward'],
+		},
+	]
+	if (overlayIds.length) {
+		sections.push({
+			id: 'overlays',
+			name: 'Overlays',
+			description: 'One button per overlay: press to show it, press again to hide it. Lit while it is live.',
+			definitions: overlayIds,
+		})
+	}
+	sections.push({
+		id: 'alerts',
+		name: 'Alerts',
+		description: 'One button per alert preset, lit while it shows, and Hide Alert.',
+		definitions: [...alertIds, 'alert_hide'],
+	})
+	sections.push({
+		id: 'music',
+		name: 'Music',
+		description: 'One button per playlist, lit while it plays, then Play / Pause, Next and Stop.',
+		definitions: [...playlistIds, 'music_play_pause', 'music_next', 'music_stop'],
+	})
+	return { sections, presets }
+}
