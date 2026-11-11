@@ -192,6 +192,16 @@ describe('clock correction', () => {
 		assert.equal(clockCorrection([{ ...service, displaySeconds: 60 }], NOW), -40_000)
 	})
 
+	it('trusts the timer that agrees: one odd timer does not move every clock on the buttons', () => {
+		// A timer Slides shows by a rule of its own (it reads 0 here, the anchors say -45) and one that agrees.
+		const odd = timer({ durationSeconds: 0, running: true, runningSince: ago(45), displaySeconds: 0 })
+		const service = timer({ mode: 'countUp', running: true, runningSince: ago(100), displaySeconds: 100 })
+		assert.equal(clockCorrection([odd, service], NOW), 0)
+		// With both clocks really apart, every timer says so and the closest reading is used.
+		const late = timer({ mode: 'countUp', running: true, runningSince: ago(100), displaySeconds: 130 })
+		assert.equal(clockCorrection([odd, late], NOW), 30_000)
+	})
+
 	it('has nothing to say when no timer is running', () => {
 		assert.equal(clockCorrection([timer({ durationSeconds: 300 })], NOW), undefined)
 		assert.equal(clockCorrection([], NOW), undefined)

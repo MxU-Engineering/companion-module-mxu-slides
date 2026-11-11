@@ -197,12 +197,15 @@ export function timecodeClock(status: TimecodeStatus | undefined, now: number): 
  * difference is the correction. Undefined when the list gives nothing to compare.
  */
 export function clockCorrection(timers: TimerStatus[], receivedAt: number): number | undefined {
+	let smallest: number | undefined
 	for (const timer of timers) {
 		if (!timerIsTicking(timer)) continue
 		const drift = timerValue(timer, receivedAt) - timer.displaySeconds
+		// Two clocks that differ disagree on every timer alike, so one timer that agrees settles it.
 		if (Math.abs(drift) <= 1.5) return 0
 		// A countdown that reads high here means our clock is behind theirs, and the reverse for a count-up.
-		return (timer.mode === 'countUp' ? -drift : drift) * 1000
+		const correction = (timer.mode === 'countUp' ? -drift : drift) * 1000
+		if (smallest === undefined || Math.abs(correction) < Math.abs(smallest)) smallest = correction
 	}
-	return undefined
+	return smallest
 }
