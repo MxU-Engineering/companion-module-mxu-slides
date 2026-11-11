@@ -383,7 +383,7 @@ describe('actions on today’s routes', () => {
 	})
 
 	it('drives the input strips of the mixer, and reads them back on a Slides that does not push them', async () => {
-		const { fake, press, feedback, host } = await connect({ apiVersion: '1.0' })
+		const { fake, press, feedback, host, settle } = await connect({ apiVersion: '1.0' })
 		assert.equal(await feedback('input_on_air', { strip: 'in-pastor' }), true)
 		assert.equal(await feedback('input_on_air', { strip: 'in-lobby' }), false)
 		assert.equal(await feedback('input_muted', { strip: 'in-video' }), true)
@@ -398,6 +398,18 @@ describe('actions on today’s routes', () => {
 		assert.equal(await feedback('input_muted', { strip: 'in-video' }), false)
 		await press('input_level', { strip: 'in-pastor', db: -12 })
 		assert.equal(await feedback('input_value', { strip: 'in-pastor', field: 'db' }), '-12.0')
+		// A dial sends its turns faster than MxU Slides answers: two at once still add up.
+		await Promise.all([
+			press('input_nudge', { strip: 'in-pastor', step: -1 }),
+			press('input_nudge', { strip: 'in-pastor', step: -1 }),
+		])
+		await settle()
+		assert.equal(
+			await feedback('input_value', { strip: 'in-pastor', field: 'db' }),
+			'-14.0',
+			'two turns before the first answer',
+		)
+		await press('input_level', { strip: 'in-pastor', db: -12 })
 		await press('input_nudge', { strip: 'in-pastor', step: 2 })
 		await press('input_nudge', { strip: 'in-pastor', step: 2 })
 		assert.equal(

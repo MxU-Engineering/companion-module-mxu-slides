@@ -2,7 +2,7 @@ import type { CompanionActionDefinitions, DropdownChoice } from '@companion-modu
 import type { SlidesClient } from '../api/client.js'
 import type { MixerKind } from '../api/types.js'
 import { Choices, number, ON_OFF_TOGGLE, resolveToggle, text, type SlidesContext } from '../context.js'
-import { dbToGain, stripDb } from '../state.js'
+import { dbToGain, stripDb, type SlidesState } from '../state.js'
 import { parseDuration } from '../time.js'
 
 type StripOptions = { strip: string }
@@ -29,6 +29,26 @@ export type AudioActions = {
 export const ALL_STRIPS = 'all'
 
 const KIND_LABEL: Record<MixerKind, string> = { input: 'Input', mix: 'Mix', output: 'Output' }
+
+/** How long a level this module just asked for stands in for the one MxU Slides last reported. */
+const AIM_MS = 500
+/**
+ * The level each strip was last sent to, per connection. A dial sends its turns faster than
+ * MxU Slides answers them, so each turn builds on the level the one before asked for, not on
+ * a report that has yet to arrive.
+ */
+const AIMS = new WeakMap<SlidesState, Map<string, { gain: number; at: number }>>()
+
+function aim(state: SlidesState, kind: MixerKind, id: string, gain: number): void {
+	const aims = AIMS.get(state) ?? new Map<string, { gain: number; at: number }>()
+	aims.set(`${kind}:${id}`, { gain, at: Date.now() })
+	AIMS.set(state, aims)
+}
+
+function aimedDb(state: SlidesState, kind: MixerKind, id: string): number | undefined {
+	const aimed = AIMS.get(state)?.get(`${kind}:${id}`)
+	return aimed && Date.now() - aimed.at < AIM_MS ? stripDb({ gain: aimed.gain }) : undefined
+}
 
 function stripPath(kind: MixerKind, id: string): string {
 	const encoded = encodeURIComponent(id)
@@ -80,6 +100,7 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 			for (const id of ids) {
 				const payload = body(id)
 				if (!payload) continue
+				if ('gain' in payload && typeof payload.gain === 'number') aim(ctx.state, kind, id, payload.gain)
 				await client.post(stripPath(kind, id), payload)
 				// Take the change at once, so the next turn of a dial builds on it without waiting.
 				const strip = ctx.state.strip(kind, id)
@@ -155,7 +176,7 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 				const strip = ctx.state.strip(kind, id)
 				if (!strip) throw new Error(`no ${KIND_LABEL[kind].toLowerCase()} with that id in MxU Slides`)
 				// From all the way down, the first step up lands at the bottom of the fader's range.
-				const from = Math.max(-60, stripDb(strip))
+				const from = Math.max(-60, aimedDb(ctx.state, kind, id) ?? stripDb(strip))
 				return { gain: dbToGain(Math.min(0, from + number(options.step, 1))) }
 			})
 		},
