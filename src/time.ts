@@ -14,9 +14,21 @@ function ms(date: string | undefined): number | undefined {
 	return Number.isNaN(value) ? undefined : value
 }
 
+/**
+ * The moment something began. MxU Slides sends these to the whole second, so the real moment
+ * lies somewhere in that second: its middle is right on average and never more than half a
+ * second out, where the start of the second would read up to a whole second off what the app
+ * shows. A time sent with a fraction is taken as it is.
+ */
+function began(date: string | undefined): number | undefined {
+	const value = ms(date)
+	if (value === undefined || !date) return value
+	return /\.\d/.test(date) ? value : value + 500
+}
+
 /** Seconds on the stopwatch at `now` (banked stretches plus the live one). */
 export function timerElapsed(timer: TimerStatus, now: number): number {
-	const since = ms(timer.runningSince)
+	const since = began(timer.runningSince)
 	const live = timer.running && since !== undefined ? Math.max(0, (now - since) / 1000) : 0
 	return (timer.bankedSeconds ?? 0) + live
 }
@@ -175,7 +187,7 @@ export function busPosition(bus: AudioBus, receivedAt: number, now: number): num
 
 /** Seconds a recording or stream has been running; 0 when it is not. */
 export function captureElapsed(side: CaptureSide | undefined, now: number): number {
-	const started = ms(side?.startedAt)
+	const started = began(side?.startedAt)
 	if (!side?.active || started === undefined) return 0
 	return Math.max(0, (now - started) / 1000)
 }
@@ -183,7 +195,7 @@ export function captureElapsed(side: CaptureSide | undefined, now: number): numb
 /** Incoming timecode as `HH:MM:SS`, counted on from its anchor. Empty when there is none. */
 export function timecodeClock(status: TimecodeStatus | undefined, now: number): string {
 	const anchor = status?.anchor
-	const anchored = ms(anchor?.anchoredAt)
+	const anchored = began(anchor?.anchoredAt)
 	if (!anchor || anchored === undefined) return ''
 	const moved = anchor.running ? ((now - anchored) / 1000) * (anchor.reverse ? -1 : 1) : 0
 	const total = Math.max(0, Math.trunc(anchor.seconds + moved))

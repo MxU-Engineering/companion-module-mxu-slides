@@ -192,6 +192,15 @@ describe('clock correction', () => {
 		assert.equal(clockCorrection([{ ...service, displaySeconds: 60 }], NOW), -40_000)
 	})
 
+	it('reads a start sent to the whole second as the middle of that second', () => {
+		// Started at 14:58:20.770; Slides sends 14:58:20. At 15:00:00.000 the app shows 99 (99.23 s).
+		const whole = timer({ mode: 'countUp', running: true, runningSince: '2026-11-15T14:58:20Z' })
+		assert.equal(timerValue(whole, NOW), 99.5)
+		// A start sent with its fraction is taken as it is.
+		const exact = timer({ mode: 'countUp', running: true, runningSince: '2026-11-15T14:58:20.770Z' })
+		assert.equal(timerValue(exact, NOW), 99.23)
+	})
+
 	it('trusts the timer that agrees: one odd timer does not move every clock on the buttons', () => {
 		// A timer Slides shows by a rule of its own (it reads 0 here, the anchors say -45) and one that agrees.
 		const odd = timer({ durationSeconds: 0, running: true, runningSince: ago(45), displaySeconds: 0 })

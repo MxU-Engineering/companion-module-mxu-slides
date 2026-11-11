@@ -95,7 +95,7 @@ describe('state', () => {
 					name: 'S',
 					mode: 'countUp',
 					running: true,
-					runningSince: '2026-11-15T14:58:20Z',
+					runningSince: '2026-11-15T14:58:20.000Z',
 					displaySeconds: 130,
 					overrun: false,
 				},
