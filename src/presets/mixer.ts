@@ -158,7 +158,8 @@ export function mixerPresets(state: SlidesState): { sections: Section[]; presets
 	if (state.audioOutputs.length) {
 		presets.mixer_mute_all = tile({
 			name: 'Mute every output',
-			family: 'clear',
+			family: 'audio',
+			litFamily: 'clear',
 			icon: 'volume-x',
 			label: 'Mute All',
 			steps: press({ actionId: 'output_mute', options: { strip: 'all', mode: 'toggle' } }),

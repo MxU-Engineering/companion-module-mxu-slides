@@ -26,7 +26,7 @@ const KIND_LABEL: Record<MixerKind, string> = { input: 'Input', mix: 'Mix', outp
 
 const VALUE_FIELDS: DropdownChoice<string>[] = [
 	{ id: 'db', label: 'Level in dB (-6.0)' },
-	{ id: 'fader', label: 'Level in dB as a number, -60 to 0' },
+	{ id: 'fader', label: 'Fader position, 0 (off) to 100 (full level)' },
 	{ id: 'state', label: 'State: on, muted or off' },
 	{ id: 'name', label: 'Name' },
 ]
@@ -40,14 +40,24 @@ const CHANNELS: DropdownChoice<string>[] = [
 /** Meters read from -60 to 0 dB on a button; quieter than that is the bottom of the bar. */
 export const METER_MIN = -60
 
+/**
+ * Where the knob sits on a button's fader, 0 to 100. Half the dB range of a real fader would
+ * crowd every usable level into the top of a rail this short, so the knob follows the square
+ * root of the gain: -6 dB sits at 71, -12 dB at 50, -20 dB at 32.
+ */
+export function faderPosition(db: number): number {
+	if (db <= METER_MIN) return 0
+	return Math.round(Math.min(1, 10 ** (db / 40)) * 1000) / 10
+}
+
 export function stripValue(state: SlidesState, kind: MixerKind, id: string, field: string): string | number {
 	const strip = state.strip(kind, id)
-	if (!strip) return field === 'fader' ? METER_MIN : ''
+	if (!strip) return field === 'fader' ? 0 : ''
 	switch (field) {
 		case 'db':
 			return formatDb(stripDb(strip))
 		case 'fader':
-			return Math.max(METER_MIN, Math.round(stripDb(strip) * 10) / 10)
+			return faderPosition(stripDb(strip))
 		case 'state':
 			return stripState(strip)
 		default:

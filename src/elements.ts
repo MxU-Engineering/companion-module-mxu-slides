@@ -137,11 +137,11 @@ export function GetCompositeElements(): CompanionGraphicsCompositeElementDefinit
 				{
 					type: 'number',
 					id: 'fader',
-					label: 'Fader position (dB)',
-					tooltip: '-60 is all the way down, 0 is full level.',
-					default: 0,
-					min: METER_MIN,
-					max: 0,
+					label: 'Fader position',
+					tooltip: '0 is all the way down, 100 is full level.',
+					default: 100,
+					min: 0,
+					max: 100,
 				},
 			],
 			elements: [
@@ -176,10 +176,8 @@ export function GetCompositeElements(): CompanionGraphicsCompositeElementDefinit
 					id: 'faderKnob',
 					name: 'Fader knob',
 					x: pct(20),
-					// From the bottom of the rail (-60 dB) to its top (0 dB).
-					y: expression(
-						`${pct(61.4)} - (max(${METER_MIN}, min(0, $(options:fader))) - ${METER_MIN}) / ${-METER_MIN} * ${pct(54)}`,
-					),
+					// From the bottom of the rail (0) to its top (100).
+					y: expression(`${pct(61.4)} - max(0, min(100, $(options:fader))) / 100 * ${pct(54)}`),
 					width: pct(6),
 					height: pct(3.2),
 					color: WHITE,

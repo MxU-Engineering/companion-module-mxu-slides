@@ -405,7 +405,11 @@ describe('actions on today’s routes', () => {
 			'-8.0',
 			'two turns of a dial add up',
 		)
-		assert.equal(await feedback('input_value', { strip: 'in-pastor', field: 'fader' }), -8)
+		assert.equal(
+			await feedback('input_value', { strip: 'in-pastor', field: 'fader' }),
+			63.1,
+			'the knob sits where -8 dB is',
+		)
 		assert.equal(host.values.input_pastor_db, '-8.0')
 		await press('input_level', { strip: 'in-pastor', db: -60 })
 		assert.equal(await feedback('input_value', { strip: 'in-pastor', field: 'db' }), '-inf')

@@ -253,6 +253,8 @@ export interface TileSpec {
 	steps: Steps
 	/** The feedback that lights the tile. */
 	lit?: Lit
+	/** The family whose color fills the tile while lit, when it is not the tile's own. */
+	litFamily?: FamilyName
 	/** `fill`: filled while lit. `always`: always filled. `plain`: never filled. */
 	look?: 'fill' | 'always' | 'plain'
 }
@@ -262,40 +264,35 @@ export interface TileSpec {
  * with its family's color while its feedback is true.
  */
 export function tile(spec: TileSpec): Preset {
-	const family = FAMILY[spec.family]
+	const litName = spec.litFamily ?? spec.family
+	const lit = FAMILY[litName]
 	const look = spec.look ?? (spec.lit ? 'fill' : 'plain')
 	const filled = look === 'always'
 	const plainText = spec.plainLabel ?? (typeof spec.label === 'string' ? spec.label : spec.name)
 
 	// A tile carries only the glyphs it can show: the family-colored one while dark, the ink one while filled.
 	const elements: Element[] = [
-		tileBase(filled ? family.bright : TILE, filled ? family.bright : TILE_EDGE),
+		tileBase(filled ? lit.bright : TILE, filled ? lit.bright : TILE_EDGE),
 		...(filled ? [] : [glyph('glyph', `${spec.icon}.${spec.family}`)]),
-		...(look === 'plain' ? [] : [glyph('glyphLit', `${spec.icon}.${spec.family}.ink`, filled)]),
-		caption(spec.label, filled ? family.ink : WHITE),
+		...(look === 'plain' ? [] : [glyph('glyphLit', `${spec.icon}.${litName}.ink`, filled)]),
+		caption(spec.label, filled ? lit.ink : WHITE),
 	]
 	const feedbacks: LayeredFeedback[] = []
 	const plainFeedbacks: SimpleFeedback[] = []
 	if (spec.lit && look === 'fill') {
 		feedbacks.push(
 			when(spec.lit, [
-				set('tile', 'color', family.bright),
-				set('tile', 'borderColor', family.bright),
+				set('tile', 'color', lit.bright),
+				set('tile', 'borderColor', lit.bright),
 				set('glyph', 'enabled', false),
 				set('glyphLit', 'enabled', true),
-				set('caption', 'color', family.ink),
+				set('caption', 'color', lit.ink),
 			]),
 		)
-		plainFeedbacks.push(whenSimple(spec.lit, { bgcolor: family.bright, color: family.ink }))
+		plainFeedbacks.push(whenSimple(spec.lit, { bgcolor: lit.bright, color: lit.ink }))
 	}
 	return alternatives(
 		layered(spec.name, elements, spec.steps, feedbacks),
-		simple(
-			spec.name,
-			plainText,
-			spec.steps,
-			plainFeedbacks,
-			filled ? { bgcolor: family.bright, color: family.ink } : {},
-		),
+		simple(spec.name, plainText, spec.steps, plainFeedbacks, filled ? { bgcolor: lit.bright, color: lit.ink } : {}),
 	)
 }
