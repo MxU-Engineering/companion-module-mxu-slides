@@ -1,7 +1,7 @@
 import type { CompanionPresetSection } from '@companion-module/base'
 import type { ModuleSchema } from '../main.js'
 import type { SlidesState } from '../state.js'
-import { DIM, FAMILY, hexColor, inkOn, WHITE } from '../style.js'
+import { DIM, dimmed, FAMILY, hexColor, inkOn, WHITE } from '../style.js'
 import { SECTION_SLOTS } from '../variables.js'
 import {
 	alternatives,
@@ -129,7 +129,19 @@ function section(slot: number): Preset {
 	const hasName = expression(`${local('name')} != ''`)
 	const elements = [
 		tileBase(),
-		label('name', expression(local('name')), 4, 20, 64, 30, WHITE, { size: 46 }),
+		// A slot the live presentation has no section for says which slot it is, dimmed.
+		label(
+			'name',
+			expression(`${local('name')} != '' ? ${local('name')} : 'Section ${slot}'`),
+			4,
+			20,
+			64,
+			30,
+			expression(`${local('name')} != '' ? ${WHITE} : ${dimmed(DIM, 0.5)}`),
+			{
+				size: 46,
+			},
+		),
 		box('bar', 8, 55, 56, 5, expression(local('color')), { radius: 2.5, enabled: hasName, name: 'Section color' }),
 		box('underline', 26, 52, 20, 3, 0x0b0b0b, { radius: 1.5, enabled: false, name: 'Live underline' }),
 	]

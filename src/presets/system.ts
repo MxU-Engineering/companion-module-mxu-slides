@@ -137,7 +137,7 @@ export function systemPresets(state: SlidesState): { sections: Section[]; preset
 			icon: 'shield-check',
 			label: 'Take Over',
 			steps: press({ actionId: 'follow', options: { action: 'takeover' } }),
-			lit: { feedbackId: 'follow_role', options: { role: 'in_charge' } },
+			lit: { feedbackId: 'follow_role', options: { role: 'took_over' } },
 		}),
 	}
 

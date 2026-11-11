@@ -448,11 +448,18 @@ describe('actions on today’s routes', () => {
 		await until(() => host.values.updates_waiting === 0, 'updates pulled')
 
 		assert.equal(await feedback('follow_role', { role: 'in_charge' }), true)
+		assert.equal(
+			await feedback('follow_role', { role: 'took_over' }),
+			false,
+			'a computer with no backup never took over',
+		)
 		await press('follow', { action: 'handback' })
 		await until(() => host.values.in_charge === false, 'role read back')
 		assert.equal(await feedback('follow_role', { role: 'backing_up' }), true)
 		await press('follow', { action: 'takeover' })
 		await until(() => host.values.in_charge === true, 'in charge again')
+		assert.equal(await feedback('follow_role', { role: 'took_over' }), true)
+		assert.equal(await feedback('follow_role', { role: 'in_charge' }), true)
 		await press('follow', { action: 'takeback' })
 		assert.equal(fake.commands().at(-1), 'POST /v1/follow/takeback')
 	})

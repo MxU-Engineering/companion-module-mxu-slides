@@ -70,7 +70,9 @@ function meterBar(
 			fillEnabled: true,
 			multiColour: true,
 			roundedEnds: false,
+			// The quiet track is the box behind; the gauge draws only the level itself.
 			trackStyle: 'transparent',
+			trackAmount: 0,
 			stops: [
 				{ value: METER_MIN, color: METER_GREEN, gradient: false },
 				{ value: -18, color: METER_AMBER, gradient: false },

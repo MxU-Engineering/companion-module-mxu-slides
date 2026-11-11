@@ -28,9 +28,11 @@ export function captureClock(state: SlidesState, side: string, now: number): str
 	return capture?.active ? formatClock(captureElapsed(capture, now)) : ''
 }
 
-/** `in_charge` covers a computer that never backed anything up as well as one that took over. */
-export function followRole(state: SlidesState): 'in_charge' | 'backing_up' | 'stepped_down' {
+/** Where this computer stands with a backup: `took_over` is a backup that is running the service. */
+export function followRole(state: SlidesState): 'in_charge' | 'took_over' | 'backing_up' | 'stepped_down' {
 	switch (state.follow?.role) {
+		case 'inCharge':
+			return 'took_over'
 		case 'backingUp':
 			return 'backing_up'
 		case 'steppedDown':
@@ -38,6 +40,12 @@ export function followRole(state: SlidesState): 'in_charge' | 'backing_up' | 'st
 		default:
 			return 'in_charge'
 	}
+}
+
+/** True for a computer that runs the service: one that never backed anything up, or a backup that took over. */
+export function inCharge(state: SlidesState): boolean {
+	const role = followRole(state)
+	return role === 'in_charge' || role === 'took_over'
 }
 
 export function systemFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFeedbackDefinitions<SystemFeedbacks> {
@@ -203,13 +211,17 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 					label: 'This computer is',
 					choices: [
 						{ id: 'in_charge', label: 'In charge' },
+						{ id: 'took_over', label: 'A backup that took over' },
 						{ id: 'backing_up', label: 'Backing up another computer' },
 						{ id: 'stepped_down', label: 'Stepped down (its backup took over)' },
 					],
 					default: 'in_charge',
 				},
 			],
-			callback: ({ options }) => followRole(state) === text(options.role),
+			callback: ({ options }) => {
+				const wanted = text(options.role)
+				return wanted === 'in_charge' ? inCharge(state) : followRole(state) === wanted
+			},
 		},
 		not_responding: {
 			type: 'boolean',

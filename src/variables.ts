@@ -3,7 +3,7 @@ import type { MixerKind } from './api/types.js'
 import { videoRow } from './actions/media.js'
 import { meterValue } from './feedbacks/audio.js'
 import { slideNumber } from './feedbacks/show.js'
-import { captureClock, followRole } from './feedbacks/system.js'
+import { captureClock, inCharge } from './feedbacks/system.js'
 import { formatDb, stripDb, stripState, type SlidesState } from './state.js'
 import {
 	busPosition,
@@ -171,7 +171,7 @@ function entries(state: SlidesState, clock: number): Entry[] {
 	add('computer_name', 'Name of the computer running MxU Slides', state.info?.stationName ?? state.info?.name)
 	add('lock', 'Lock is on', state.lock ? state.lock.locked : '')
 	add('updates_waiting', 'Updates waiting behind the Lock', state.lock ? state.lock.waitingUpdates : '')
-	add('in_charge', 'This computer is in charge', state.info ? followRole(state) === 'in_charge' : '')
+	add('in_charge', 'This computer is in charge', state.info ? inCharge(state) : '')
 	add(
 		'health',
 		'Connection health (ok, not responding)',
