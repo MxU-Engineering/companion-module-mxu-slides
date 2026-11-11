@@ -88,6 +88,8 @@ const SHOW_FIELDS: DropdownChoice<string>[] = [
 	{ id: 'slide_name', label: 'Slide name' },
 	{ id: 'text', label: 'Slide text' },
 	{ id: 'next_text', label: 'Next slide text' },
+	{ id: 'label', label: 'Section name, or the presentation name without sections' },
+	{ id: 'next_label', label: 'Next section name, or nothing without sections' },
 	{ id: 'section', label: 'Section name' },
 	{ id: 'section_color', label: 'Section color' },
 	{ id: 'next_section', label: 'Next section name' },
@@ -119,6 +121,10 @@ export function showValue(state: SlidesState, field: string): string | number {
 			return live?.text ?? ''
 		case 'next_text':
 			return next?.text ?? show?.nextSlideText ?? ''
+		case 'label':
+			return live?.sectionName ?? live?.presentationName ?? ''
+		case 'next_label':
+			return next?.sectionName ?? ''
 		case 'section':
 			return live?.sectionName ?? ''
 		case 'section_color':

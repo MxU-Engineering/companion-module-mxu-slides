@@ -240,7 +240,11 @@ describe('updates', () => {
 
 describe('actions on today’s routes', () => {
 	it('moves through slides', async () => {
-		const { fake, press, host } = await connect({ apiVersion: '1.0' })
+		const { fake, press, feedback, host } = await connect({ apiVersion: '1.0' })
+		// An older Slides sends no sections: the Now tile falls back to the presentation's name.
+		assert.equal(await feedback('show_value', { field: 'label' }), 'Goodness of God')
+		assert.equal(await feedback('show_value', { field: 'next_label' }), '')
+		assert.equal(await feedback('slide_picture', { which: 'live' }), null)
 		await press('slide_next', { skipBuilds: false })
 		assert.deepEqual(fake.lastBody('/v1/show/advance'), { steps: 1, settled: false })
 		await press('slide_next', { skipBuilds: true })
@@ -570,6 +574,9 @@ describe('actions that need a newer MxU Slides', () => {
 		assert.equal(await feedback('show_value', { field: 'position' }), '3 / 14')
 		assert.equal(await feedback('show_value', { field: 'next_position' }), '4 / 14')
 		assert.equal(await feedback('show_value', { field: 'section' }), 'Chorus')
+		assert.equal(await feedback('show_value', { field: 'label' }), 'Chorus')
+		assert.equal(await feedback('show_value', { field: 'next_label' }), 'Chorus')
+		assert.equal(await feedback('show_value', { field: 'text' }), 'Line 3 of Goodness of God')
 		assert.equal(await feedback('show_value', { field: 'section_color' }), 0xff9f0a)
 		assert.equal(await feedback('show_value', { field: 'next_section' }), 'Chorus')
 		assert.equal(await feedback('show_value', { field: 'deck' }), 'Goodness of God')

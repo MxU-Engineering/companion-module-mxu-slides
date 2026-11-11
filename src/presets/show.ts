@@ -84,12 +84,19 @@ function thumb(which: 'live' | 'next'): Preset {
 	const steps = live ? press() : press({ actionId: 'slide_next', options: { skipBuilds: false } })
 	const ring = live ? FAMILY.clear.bright : 0x55554f
 	const frame = live ? 2 : 1
+	const hasLabel = expression(`${local('label')} != ''`)
 	const elements = [
 		tileBase(),
 		box('ring', 4, 5, 64, 37, ring, { radius: 3, name: 'Picture ring' }),
 		box('pictureBack', 4 + frame, 5 + frame, 64 - frame * 2, 37 - frame * 2, 0x0c1220, {
 			radius: 2,
 			name: 'Picture back',
+		}),
+		// Under the picture: the slide's words, which is what shows when MxU Slides sends no picture.
+		label('words', expression(local('words')), 8, 9, 56, 29, 0xd6d6d2, {
+			size: 27,
+			weight: 'normal',
+			name: 'Slide text',
 		}),
 		{
 			type: 'image' as const,
@@ -106,13 +113,15 @@ function thumb(which: 'live' | 'next'): Preset {
 		},
 		label('kind', name.toUpperCase(), 5, 45.5, 28, 9.5, live ? FAMILY.clear.bright : DIM, { halign: 'left', size: 92 }),
 		label('position', expression(local('position')), 30, 45.5, 37, 9.5, WHITE, { halign: 'right', size: 100 }),
-		box('pill', 5, 57, 62, 10.5, expression(local('color')), { radius: 5.25, name: 'Section pill' }),
-		label('section', expression(local('section')), 7, 57.4, 58, 10, 0x0b0b0b, { size: 88 }),
+		// The section in its own color; without sections, the presentation's name on a quiet pill.
+		box('pill', 5, 57, 62, 10.5, expression(local('color')), { radius: 5.25, enabled: hasLabel, name: 'Section pill' }),
+		label('section', expression(local('label')), 7, 57.4, 58, 10, 0x0b0b0b, { size: 88, enabled: hasLabel }),
 	]
 	const variables = [
 		localValue('picture', 'slide_picture', { which }),
+		localValue('words', 'show_value', { field: live ? 'text' : 'next_text' }),
 		localValue('position', 'show_value', { field: live ? 'position' : 'next_position' }),
-		localValue('section', 'show_value', { field: live ? 'section' : 'next_section' }),
+		localValue('label', 'show_value', { field: live ? 'label' : 'next_label' }),
 		localValue('color', 'show_value', { field: live ? 'section_color' : 'next_section_color' }),
 	]
 	const text = live
