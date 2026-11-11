@@ -92,6 +92,7 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 					id: 'by',
 					type: 'dropdown',
 					label: 'Find the section by',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'position', label: 'Position in the presentation' },
 						{ id: 'name', label: 'Name' },

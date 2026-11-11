@@ -181,7 +181,8 @@ export class SlidesClient {
 
 	async #connect(): Promise<void> {
 		if (this.#stopped) return
-		this.#options.onStatus({ kind: 'connecting' })
+		// A retry keeps the status that says why it is retrying; only a first try reads as connecting.
+		if (this.#attempt === 0) this.#options.onStatus({ kind: 'connecting' })
 		const abort = new AbortController()
 		this.#connectAbort = abort
 		let info: ServerInfo

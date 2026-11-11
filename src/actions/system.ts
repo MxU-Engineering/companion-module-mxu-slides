@@ -49,7 +49,14 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 	): CompanionActionDefinitions<{ a: { options: CaptureOptions } }>['a'] => ({
 		name: `${label}: Start, Stop`,
 		options: [
-			{ id: 'mode', type: 'dropdown', label: 'Do', choices: START_STOP, default: 'toggle' },
+			{
+				id: 'mode',
+				type: 'dropdown',
+				label: 'Do',
+				choices: START_STOP,
+				default: 'toggle',
+				disableAutoExpression: true,
+			},
 			{
 				id: 'preset',
 				type: 'dropdown',

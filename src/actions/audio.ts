@@ -123,6 +123,7 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 				max: 0,
 				step: 0.5,
 				range: true,
+				clampValues: true,
 			},
 		],
 		callback: async ({ options }) => {
@@ -145,6 +146,7 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 				min: -12,
 				max: 12,
 				step: 0.5,
+				clampValues: true,
 			},
 		],
 		callback: async ({ options }) => {
@@ -203,6 +205,7 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					id: 'action',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'playPause', label: 'Play / Pause' },
 						{ id: 'next', label: 'Next track' },

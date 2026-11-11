@@ -56,6 +56,7 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					id: 'mode',
 					type: 'dropdown',
 					label: 'Kind',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'countdown', label: 'Count down from a length' },
 						{ id: 'countdownToTime', label: 'Count down to a time of day' },
@@ -80,6 +81,7 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					min: 0,
 					max: 23,
 					asInteger: true,
+					clampValues: true,
 					isVisibleExpression: "$(options:mode) == 'countdownToTime'",
 				},
 				{
@@ -90,6 +92,7 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					min: 0,
 					max: 59,
 					asInteger: true,
+					clampValues: true,
 					isVisibleExpression: "$(options:mode) == 'countdownToTime'",
 				},
 			],

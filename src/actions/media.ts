@@ -76,6 +76,7 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					id: 'action',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'toggle', label: 'Play / Pause' },
 						{ id: 'resume', label: 'Play' },

@@ -197,6 +197,7 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 					id: 'by',
 					type: 'dropdown',
 					label: 'Find the section by',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'position', label: 'Position in the presentation' },
 						{ id: 'name', label: 'Name' },
@@ -252,6 +253,7 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 					id: 'match',
 					type: 'dropdown',
 					label: 'Which alert',
+					disableAutoExpression: true,
 					choices: [
 						{ id: ANY, label: 'Any alert' },
 						{ id: 'preset', label: 'One alert preset' },
