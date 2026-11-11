@@ -236,6 +236,29 @@ describe('presets', () => {
 		assert.ok(ids.includes('trigger_trigger-preservice'))
 	})
 
+	it('groups overlays by their library folder, so packs that reuse a name can be told apart', () => {
+		const state = filled()
+		state.applyLibrary('overlays', [
+			{ id: 'pack.a.cta', name: 'Call to Action', folder: 'Clean Geometric/Lower Thirds' },
+			{ id: 'pack.b.cta', name: 'Call to Action', folder: 'Bold Blocks/Lower Thirds' },
+			{ id: 'pack.b.ticker', name: 'Ticker', folder: 'Bold Blocks/Lower Thirds' },
+		])
+		const folders = GetPresets(state)
+		const overlays = folders.sections.find((section) => section.id === 'overlays')
+		const groups = overlays?.definitions as { name: string; presets: string[] }[]
+		assert.deepEqual(
+			groups.map((group) => [group.name, group.presets]),
+			[
+				['Clean Geometric / Lower Thirds', ['overlay_pack.a.cta']],
+				['Bold Blocks / Lower Thirds', ['overlay_pack.b.cta', 'overlay_pack.b.ticker']],
+			],
+		)
+		assert.equal(
+			variants(folders.presets['overlay_pack.b.cta'])[0].name,
+			'Overlay: Bold Blocks/Lower Thirds / Call to Action',
+		)
+	})
+
 	it('gives a permanent Service Tracking timer a display only, with nothing to press', () => {
 		const ids = Object.keys(presets).filter((id) => id.startsWith('timer_service_tracking.'))
 		assert.deepEqual(ids, ['timer_service_tracking.service.elapsed_display'])

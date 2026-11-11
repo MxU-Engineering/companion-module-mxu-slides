@@ -139,10 +139,15 @@ export function mediaPresets(state: SlidesState): { sections: Section[]; presets
 		}),
 	}
 
+	// The built-in overlay packs reuse the same names ("Call to Action" in every pack), so the
+	// library's folders become groups and each preset's name says which folder it is from.
+	const overlayFolders = new Map<string, string[]>()
 	const overlayIds = state.library.overlays.map((overlay) => {
 		const id = `overlay_${overlay.id}`
+		const folder = overlay.folder ?? ''
+		overlayFolders.set(folder, [...(overlayFolders.get(folder) ?? []), id])
 		presets[id] = tile({
-			name: `Overlay: ${overlay.name}`,
+			name: `Overlay: ${folder ? `${folder} / ` : ''}${overlay.name}`,
 			family: 'media',
 			icon: 'layers',
 			label: overlay.name,
@@ -209,7 +214,15 @@ export function mediaPresets(state: SlidesState): { sections: Section[]; presets
 			id: 'overlays',
 			name: 'Overlays',
 			description: 'One button per overlay: press to show it, press again to hide it. Lit while it is live.',
-			definitions: overlayIds,
+			definitions:
+				overlayFolders.size > 1
+					? [...overlayFolders].map(([folder, ids], index) => ({
+							id: `overlays_folder_${index}`,
+							type: 'simple' as const,
+							name: folder.replaceAll('/', ' / ') || 'Not in a folder',
+							presets: ids,
+						}))
+					: overlayIds,
 		})
 	}
 	sections.push({
