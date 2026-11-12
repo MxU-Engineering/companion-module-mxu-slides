@@ -55,8 +55,19 @@ export function timerFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 		timer_state: {
 			type: 'boolean',
 			name: 'Timer is running, paused, in warning or over',
+			description: 'True while a timer is in this state.',
 			defaultStyle: { bgcolor: FAMILY.timer.bright, color: FAMILY.timer.ink },
-			options: [timerOption, { id: 'state', type: 'dropdown', label: 'Timer is', choices: STATES, default: 'running' }],
+			options: [
+				timerOption,
+				{
+					id: 'state',
+					type: 'dropdown',
+					label: 'Timer is',
+					choices: STATES,
+					default: 'running',
+					disableAutoExpression: true,
+				},
+			],
 			callback: ({ options }) => {
 				const timer = find(options.timer)
 				if (!timer) return false
@@ -73,7 +84,17 @@ export function timerFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 			type: 'value',
 			name: 'Timer: a value',
 			description: 'The time, progress or name of a timer, counted every second.',
-			options: [timerOption, { id: 'field', type: 'dropdown', label: 'Value', choices: FIELDS, default: 'time' }],
+			options: [
+				timerOption,
+				{
+					id: 'field',
+					type: 'dropdown',
+					label: 'Value',
+					choices: FIELDS,
+					default: 'time',
+					disableAutoExpression: true,
+				},
+			],
 			callback: ({ options }) => timerValueField(find(options.timer), text(options.field), state.now()),
 		},
 	}

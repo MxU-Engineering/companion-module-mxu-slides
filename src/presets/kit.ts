@@ -13,7 +13,7 @@ import {
 	type SomePresetLayeredFeedbackEntry,
 	type SomePresetSimpleFeedbackEntry,
 } from '@companion-module/base'
-import type { CompositeElementsSchema } from '../elements.js'
+import { expression, pct, type CompositeElementsSchema, type Expression } from '../elements.js'
 import type { FeedbacksSchema } from '../feedbacks.js'
 import { ICONS } from '../icons.js'
 import type { ModuleSchema } from '../main.js'
@@ -34,23 +34,12 @@ export type SimpleFeedback = SomePresetSimpleFeedbackEntry<ModuleSchema>
 export type LocalVariable = CompanionPresetLocalVariable<FeedbacksSchema>
 export type Lit = CompanionPresetConditionFeedback<FeedbacksSchema>
 export type Preset = CompanionPresetAlternatives<ModuleSchema>
-export type Expression = { isExpression: true; value: string }
 
-/** The connection's short name: Companion swaps it for the label of the connection a preset lands on. */
-export const LABEL = 'slides'
-
-export function expression(value: string): Expression {
-	return { isExpression: true, value }
-}
+export { expression, pct, type Expression }
 
 /** A local variable of the button, for use inside an expression. */
 export function local(name: string): string {
 	return `$(local:${name})`
-}
-
-/** A length in the 72-unit button space, as a percentage. */
-export function pct(units: number): number {
-	return Math.round((units / 72) * 10000) / 100
 }
 
 /** A feedback value kept in a local variable of the button, so elements can show it. */
@@ -270,8 +259,7 @@ export function tile(spec: TileSpec): Preset {
 	const plainText = spec.plainLabel ?? (typeof spec.label === 'string' ? spec.label : spec.name)
 
 	// Something that turns on is grey while off and filled while on. An action you can press any
-	// time is plain white: not grey (Cody: "shouldn't be greyed out") and not colored (he reads
-	// color as on).
+	// time is plain white: grey would read as unavailable, and color reads as on.
 	const elements: Element[] = [
 		tileBase(),
 		glyph('glyph', look === 'plain' ? `${spec.icon}.action` : `${spec.icon}.rest`),

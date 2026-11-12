@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-floating-promises -- the node:test runner awaits describe() and it() itself */
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { ShowStatus } from '../api/types.js'
+import type { ShowStatus, TimerStatus } from '../api/types.js'
 import { versionAtLeast } from '../api/client.js'
 import { feedbacksFor } from '../feedbacks.js'
 import { isLive, liveSectionIndex, slideNumber } from '../feedbacks/show.js'
 import { dbToGain, formatDb, shapeKey, SlidesState, stripDb, stripState } from '../state.js'
 import { hexColor, inkOn } from '../style.js'
-import { changedValues, GetVariableDefinitions, GetVariableValues, slug, slugs } from '../variables.js'
+import { changedValues, GetVariableDefinitions, GetVariableValues, slug, slugs, timerVariable } from '../variables.js'
 
 function show(extra: Partial<ShowStatus> = {}): ShowStatus {
 	return {
@@ -227,6 +227,43 @@ describe('variables', () => {
 			{ id: 'c', name: 'Service' },
 		])
 		assert.deepEqual([...ids.values()], ['sermon', 'sermon_2', 'service'])
+		const numbered = slugs([
+			{ id: 'a', name: 'Sermon 2' },
+			{ id: 'b', name: 'Sermon' },
+			{ id: 'c', name: 'Sermon' },
+		])
+		assert.deepEqual([...numbered.values()], ['sermon_2', 'sermon', 'sermon_3'])
+	})
+
+	it('keeps timer variables apart when one name ends in a variable of another', () => {
+		const timer = (id: string, name: string): TimerStatus => ({
+			id,
+			name,
+			mode: 'countdown',
+			running: false,
+			displaySeconds: 0,
+			overrun: false,
+			durationSeconds: 300,
+		})
+		for (const timers of [
+			[timer('a', 'Sermon'), timer('b', 'Sermon Name')],
+			[timer('b', 'Sermon Name'), timer('a', 'Sermon')],
+		]) {
+			const state = new SlidesState()
+			state.apply('timers', timers)
+			const ids = Object.keys(GetVariableDefinitions(state)).filter((id) => id.startsWith('timer_'))
+			assert.equal(ids.length, 14, 'seven variables for each timer')
+			const values = GetVariableValues(state)
+			const names = timers.map((one) => values[`${timerVariable(state, one.id)}_name`])
+			assert.deepEqual(
+				names,
+				timers.map((one) => one.name),
+			)
+		}
+		const state = new SlidesState()
+		state.apply('timers', [timer('a', 'Sermon'), timer('b', 'Sermon Name')])
+		assert.equal(timerVariable(state, 'a'), 'timer_sermon', 'the first keeps its id')
+		assert.equal(timerVariable(state, 'b'), 'timer_sermon_name_2')
 	})
 
 	it('defines a variable for every value it sets, and the other way round', () => {

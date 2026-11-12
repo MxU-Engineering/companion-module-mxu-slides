@@ -26,6 +26,7 @@ export const TIMING = {
 
 /** Stands in for Companion: records everything the controller tells it. */
 export class TestHost implements ModuleHost {
+	label = 'slides'
 	logs: { level: LogLevel; message: string }[] = []
 	statuses: { status: InstanceStatus; message: string }[] = []
 	actions: CompanionActionDefinitions<ActionsSchema> | undefined
@@ -110,8 +111,8 @@ export interface Rig {
 	fake: FakeSlides
 	host: TestHost
 	controller: SlidesController
-	/** Runs an action the way a button press would. */
-	press: (actionId: keyof ActionsSchema, options?: Record<string, JsonValue>) => Promise<void>
+	/** Runs an action the way a button press would; `signal` stands in for Companion aborting it. */
+	press: (actionId: keyof ActionsSchema, options?: Record<string, JsonValue>, signal?: AbortSignal) => Promise<void>
 	/** Evaluates a feedback the way Companion would. */
 	feedback: (feedbackId: FeedbackId, options?: Record<string, JsonValue>) => Promise<unknown>
 	/** Waits until the controller has caught up with everything the fake pushed. */
@@ -160,10 +161,13 @@ export async function rig(
 		host,
 		controller,
 		settle,
-		press: async (actionId, options = {}) => {
+		press: async (actionId, options = {}, signal = context.signal) => {
 			const definition = host.actions?.[actionId] as Callable | undefined
 			if (!definition) throw new Error(`No action ${actionId}`)
-			await definition.callback({ id: 'a', controlId: 'c', actionId, options, surfaceId: undefined }, context)
+			await definition.callback(
+				{ id: 'a', controlId: 'c', actionId, options, surfaceId: undefined },
+				{ ...context, signal },
+			)
 			await sleep(40)
 		},
 		feedback: async (feedbackId, options = {}) => {

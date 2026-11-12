@@ -9,7 +9,6 @@ import {
 	caption,
 	expression,
 	glyph,
-	LABEL,
 	label,
 	layered,
 	local,
@@ -125,7 +124,7 @@ function slideSteps(live: boolean): Steps {
 }
 
 /** Current and Next: the slide picture, its number, and its section in the section's own color. */
-function thumb(which: 'live' | 'next'): Preset {
+function thumb(which: 'live' | 'next', connection: string): Preset {
 	const live = which === 'live'
 	const name = live ? 'Current' : 'Next'
 	const steps = slideSteps(live)
@@ -149,13 +148,13 @@ function thumb(which: 'live' | 'next'): Preset {
 		localValue('color', 'show_value', { field: live ? 'section_color' : 'next_section_color' }),
 	]
 	const text = live
-		? `CURRENT $(${LABEL}:slide_number) / $(${LABEL}:slide_count)\\n$(${LABEL}:section_name)`
-		: `NEXT\\n$(${LABEL}:next_section_name)`
+		? `CURRENT $(${connection}:slide_number) / $(${connection}:slide_count)\\n$(${connection}:section_name)`
+		: `NEXT\\n$(${connection}:next_section_name)`
 	return alternatives(layered(`Slide: ${name}`, elements, steps, [], variables), simple(`Slide: ${name}`, text, steps))
 }
 
 /** The picture as big as the key allows, with Current or Next under it. */
-function pictureOnly(which: 'live' | 'next'): Preset {
+function pictureOnly(which: 'live' | 'next', connection: string): Preset {
 	const live = which === 'live'
 	const kind = live ? 'Current' : 'Next'
 	const name = `Slide: ${kind} picture`
@@ -167,12 +166,12 @@ function pictureOnly(which: 'live' | 'next'): Preset {
 	]
 	return alternatives(
 		layered(name, elements, steps, [], pictureValues(live)),
-		simple(name, live ? `$(${LABEL}:slide_text)` : `$(${LABEL}:next_slide_text)`, steps),
+		simple(name, live ? `$(${connection}:slide_text)` : `$(${connection}:next_slide_text)`, steps),
 	)
 }
 
 /** The current or next section's name; the current one fills with the section's color. */
-function sectionNow(which: 'live' | 'next'): Preset {
+function sectionNow(which: 'live' | 'next', connection: string): Preset {
 	const live = which === 'live'
 	const kind = live ? 'Current' : 'Next'
 	const steps = slideSteps(live)
@@ -200,12 +199,12 @@ function sectionNow(which: 'live' | 'next'): Preset {
 	const name = `Slide: ${kind} section`
 	return alternatives(
 		layered(name, elements, steps, [], variables),
-		simple(name, `${kind.toUpperCase()}\\n$(${LABEL}:${live ? 'section_name' : 'next_section_name'})`, steps),
+		simple(name, `${kind.toUpperCase()}\\n$(${connection}:${live ? 'section_name' : 'next_section_name'})`, steps),
 	)
 }
 
 /** A number in big type with a caption under it: the slide count, or the slides left. */
-function count(field: 'position' | 'slides_left', title: string): Preset {
+function count(field: 'position' | 'slides_left', title: string, connection: string): Preset {
 	const name = `Slide: ${title}`
 	const elements = [
 		tileBase(),
@@ -213,7 +212,9 @@ function count(field: 'position' | 'slides_left', title: string): Preset {
 		caption(title, DIM),
 	]
 	const variable =
-		field === 'position' ? `$(${LABEL}:slide_number) / $(${LABEL}:slide_count)` : `$(${LABEL}:slides_left)`
+		field === 'position'
+			? `$(${connection}:slide_number) / $(${connection}:slide_count)`
+			: `$(${connection}:slides_left)`
 	return alternatives(
 		layered(name, elements, press(), [], [localValue('value', 'show_value', { field })]),
 		simple(name, `${variable}\\n${title}`, press()),
@@ -221,10 +222,10 @@ function count(field: 'position' | 'slides_left', title: string): Preset {
 }
 
 /** A section button: it takes the name and color of section N of whatever presentation is live. */
-function section(slot: number): Preset {
+function section(slot: number, connection: string): Preset {
 	const name = `Section ${slot}`
-	const steps = press({ actionId: 'section_goto', options: { by: 'position', position: String(slot), name: '' } })
-	const lit = { feedbackId: 'section_live' as const, options: { by: 'position', position: String(slot), name: '' } }
+	const steps = press({ actionId: 'section_goto', options: { by: 'position', position: slot, name: '' } })
+	const lit = { feedbackId: 'section_live' as const, options: { by: 'position', position: slot, name: '' } }
 	const hasName = expression(`${local('name')} != ''`)
 	const elements = [
 		tileBase(),
@@ -254,12 +255,12 @@ function section(slot: number): Preset {
 		]),
 	]
 	const variables = [
-		localValue('name', 'section_value', { position: String(slot), field: 'name' }),
-		localValue('color', 'section_value', { position: String(slot), field: 'color' }),
+		localValue('name', 'section_value', { position: slot, field: 'name' }),
+		localValue('color', 'section_value', { position: slot, field: 'color' }),
 	]
 	return alternatives(
 		layered(`Slide: ${name}`, elements, steps, feedbacks, variables),
-		simple(`Slide: ${name}`, `$(${LABEL}:section_${slot}_name)`, steps, [
+		simple(`Slide: ${name}`, `$(${connection}:section_${slot}_name)`, steps, [
 			whenSimple(lit, { bgcolor: FAMILY.conf.bright, color: FAMILY.conf.ink }),
 		]),
 	)
@@ -309,18 +310,18 @@ function combo(id: string, name: string, colorHex: string | undefined, iconName:
 	)
 }
 
-export function showPresets(state: SlidesState): { sections: Section[]; presets: Presets } {
+export function showPresets(state: SlidesState, connection: string): { sections: Section[]; presets: Presets } {
 	const presets: Presets = {
 		slide_previous: nav('previous'),
 		slide_next: nav('next'),
-		slide_now: thumb('live'),
-		slide_upcoming: thumb('next'),
-		slide_current_picture: pictureOnly('live'),
-		slide_next_picture: pictureOnly('next'),
-		slide_current_section: sectionNow('live'),
-		slide_next_section: sectionNow('next'),
-		slide_position: count('position', 'Slide'),
-		slides_left: count('slides_left', 'Slides Left'),
+		slide_now: thumb('live', connection),
+		slide_upcoming: thumb('next', connection),
+		slide_current_picture: pictureOnly('live', connection),
+		slide_next_picture: pictureOnly('next', connection),
+		slide_current_section: sectionNow('live', connection),
+		slide_next_section: sectionNow('next', connection),
+		slide_position: count('position', 'Slide', connection),
+		slides_left: count('slides_left', 'Slides Left', connection),
 		service_item_previous: tile({
 			name: 'Service: Previous item',
 			family: 'go',
@@ -360,7 +361,7 @@ export function showPresets(state: SlidesState): { sections: Section[]; presets:
 	}
 	const sectionIds: string[] = []
 	for (let slot = 1; slot <= SECTION_SLOTS; slot++) {
-		presets[`section_${slot}`] = section(slot)
+		presets[`section_${slot}`] = section(slot, connection)
 		sectionIds.push(`section_${slot}`)
 	}
 

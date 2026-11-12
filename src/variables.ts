@@ -42,18 +42,26 @@ export function slug(name: string): string {
 	)
 }
 
-/** One id per item from its name; a second item with the same name gets `_2`, and so on. */
-export function slugs(items: { id: string; name: string }[]): Map<string, string> {
-	const taken = new Map<string, number>()
+/**
+ * One id per item from its name; a second item with the same name gets `_2`, and so on.
+ * `suffixes` are the endings each id gets in its variables: an id that would give a variable
+ * another item already has (a timer "Sermon Name" and timer "Sermon"'s `_name`) gets a number too.
+ */
+export function slugs(items: { id: string; name: string }[], suffixes = ['']): Map<string, string> {
+	const taken = new Set<string>()
 	const result = new Map<string, string>()
 	for (const item of items) {
 		const base = slug(item.name)
-		const count = (taken.get(base) ?? 0) + 1
-		taken.set(base, count)
-		result.set(item.id, count === 1 ? base : `${base}_${count}`)
+		let id = base
+		for (let count = 2; suffixes.some((suffix) => taken.has(id + suffix)); count++) id = `${base}_${count}`
+		for (const suffix of suffixes) taken.add(id + suffix)
+		result.set(item.id, id)
 	}
 	return result
 }
+
+/** The endings of a timer's variables, after `timer_<name>`. */
+const TIMER_SUFFIXES = ['', '_hms', '_ms', '_seconds', '_state', '_name', '_length']
 
 interface Entry {
 	id: string
@@ -95,7 +103,7 @@ function entries(state: SlidesState, clock: number): Entry[] {
 	add('next_item', 'Next service item', show?.position?.nextItemName)
 	add('fired_by', 'Who or what fired the live slide', live?.firedBy?.name ?? live?.firedBy?.kind)
 
-	const timerIds = slugs(state.timers)
+	const timerIds = slugs(state.timers, TIMER_SUFFIXES)
 	for (const timer of state.timers) {
 		const id = `timer_${timerIds.get(timer.id)}`
 		const value = timerValue(timer, now)
@@ -136,7 +144,7 @@ function entries(state: SlidesState, clock: number): Entry[] {
 			add(`${id}_name`, `${label}: name`, strip.name)
 			add(`${id}_db`, `${label}: level in dB`, formatDb(stripDb(strip)))
 			add(`${id}_muted`, `${label}: muted`, strip.muted)
-			if (kind === 'input') add(`${id}_on`, `${label}: On`, stripState(strip) === 'on')
+			if (kind === 'input') add(`${id}_on`, `${label}: on`, stripState(strip) === 'on')
 			add(`${id}_meter`, `${label}: meter level in dB`, meterValue(state, kind, strip.id, 'max'))
 		}
 	}
@@ -214,7 +222,7 @@ export function changedValues(
 
 /** The variable that carries a timer's time, as presets name it. */
 export function timerVariable(state: SlidesState, timerId: string): string {
-	return `timer_${slugs(state.timers).get(timerId) ?? 'unnamed'}`
+	return `timer_${slugs(state.timers, TIMER_SUFFIXES).get(timerId) ?? 'unnamed'}`
 }
 
 /** The id prefix of a mixer strip's variables. */

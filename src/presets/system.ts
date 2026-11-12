@@ -8,7 +8,6 @@ import {
 	caption,
 	expression,
 	glyph,
-	LABEL,
 	label,
 	layered,
 	local,
@@ -30,7 +29,7 @@ type Section = CompanionPresetSection<ModuleSchema>
  * Record and Stream: a dark button with the glyph while off; while on, filled, with the time
  * it has been running.
  */
-function capture(side: 'recording' | 'streaming'): Preset {
+function capture(side: 'recording' | 'streaming', connection: string): Preset {
 	const recording = side === 'recording'
 	const name = recording ? 'Record' : 'Stream'
 	const icon = recording ? 'circle-dot' : 'radio-tower'
@@ -68,7 +67,7 @@ function capture(side: 'recording' | 'streaming'): Preset {
 			whenSimple(lit, {
 				bgcolor: rec.bright,
 				color: rec.ink,
-				text: `${recording ? 'REC' : 'LIVE'}\\n$(${LABEL}:${side}_time)`,
+				text: `${recording ? 'REC' : 'LIVE'}\\n$(${connection}:${side}_time)`,
 			}),
 		]),
 	)
@@ -103,7 +102,7 @@ function pullUpdates(): Preset {
 	)
 }
 
-export function systemPresets(state: SlidesState): { sections: Section[]; presets: Presets } {
+export function systemPresets(state: SlidesState, connection: string): { sections: Section[]; presets: Presets } {
 	const presets: Presets = {
 		screens_identify: tile({
 			name: 'Screens: Identify',
@@ -112,8 +111,8 @@ export function systemPresets(state: SlidesState): { sections: Section[]; preset
 			label: 'Identify',
 			steps: press({ actionId: 'screens_identify', options: {} }),
 		}),
-		capture_record: capture('recording'),
-		capture_stream: capture('streaming'),
+		capture_record: capture('recording', connection),
+		capture_stream: capture('streaming', connection),
 		scheduler_on: tile({
 			name: 'Scheduler: On / Off',
 			family: 'system',

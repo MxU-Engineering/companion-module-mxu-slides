@@ -1,11 +1,11 @@
 import type { CompanionActionDefinitions } from '@companion-module/base'
-import { Choices, CLEAR_TARGETS, LAYERS, number, text, type SlidesContext } from '../context.js'
+import { Choices, CLEAR_TARGETS, LAYERS, number, picked, text, type SlidesContext } from '../context.js'
 
 export type ShowActions = {
 	slide_next: { options: { skipBuilds: boolean } }
 	slide_previous: { options: Record<string, never> }
-	slide_goto: { options: { deck: string; slide: string } }
-	section_goto: { options: { by: string; position: string; name: string } }
+	slide_goto: { options: { deck: string; slide: number } }
+	section_goto: { options: { by: string; position: number; name: string } }
 	service_item: { options: { direction: string } }
 	service_select: { options: { service: string } }
 	service_start: { options: Record<string, never> }
@@ -44,8 +44,8 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 					default: false,
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Slide: Next', undefined, async (client) =>
+			callback: async ({ options }, { signal }) => {
+				await ctx.run('Slide: Next', undefined, signal, async (client) =>
 					client.post('/v1/show/advance', { steps: 1, settled: options.skipBuilds === true }),
 				)
 			},
@@ -54,24 +54,30 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 			name: 'Slide: Previous',
 			description: 'Steps back through the builds of the live slide first, like the left arrow key.',
 			options: [],
-			callback: async () => {
-				await ctx.run('Slide: Previous', undefined, async (client) => client.post('/v1/show/advance', { steps: -1 }))
+			callback: async (_action, { signal }) => {
+				await ctx.run('Slide: Previous', undefined, signal, async (client) =>
+					client.post('/v1/show/advance', { steps: -1 }),
+				)
 			},
 		},
 		slide_goto: {
 			name: 'Slide: Go to slide',
+			description: 'Puts one slide of a presentation on screen, by its number.',
 			options: [
 				{ id: 'deck', type: 'dropdown', label: 'Presentation', choices: decks, default: LIVE_DECK, allowCustom: true },
 				{
 					id: 'slide',
-					type: 'textinput',
+					type: 'number',
 					label: 'Slide number',
 					description: 'The first slide is 1, as in the grid in MxU Slides.',
-					default: '1',
-					useVariables: true,
+					default: 1,
+					min: 1,
+					max: 9999,
+					asInteger: true,
+					clampValues: true,
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
 				const index = Math.round(number(options.slide, Number.NaN)) - 1
 				if (!(index >= 0)) {
 					ctx.log('warn', `Slide: Go to slide: "${text(options.slide)}" is not a slide number. The first slide is 1.`)
@@ -79,7 +85,7 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 				}
 				const deck = text(options.deck)
 				const live = deck === LIVE_DECK || deck === ''
-				await ctx.run('Slide: Go to slide', undefined, async (client) =>
+				await ctx.run('Slide: Go to slide', undefined, signal, async (client) =>
 					client.post('/v1/show/slide', live ? liveSlideBody(index) : { presentationId: deck, slideIndex: index }),
 				)
 			},
@@ -101,11 +107,14 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 				},
 				{
 					id: 'position',
-					type: 'textinput',
+					type: 'number',
 					label: 'Section number',
 					description: 'The first section is 1.',
-					default: '1',
-					useVariables: true,
+					default: 1,
+					min: 1,
+					max: 99,
+					asInteger: true,
+					clampValues: true,
 					isVisibleExpression: "$(options:by) == 'position'",
 				},
 				{
@@ -117,8 +126,8 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 					isVisibleExpression: "$(options:by) == 'name'",
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Slide: Go to section', '1.1', async (client) => {
+			callback: async ({ options }, { signal }) => {
+				await ctx.run('Slide: Go to section', '1.1', signal, async (client) => {
 					const sections = ctx.state.show?.sections ?? []
 					const wanted = text(options.name).trim().toLowerCase()
 					const section =
@@ -132,11 +141,13 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 		},
 		service_item: {
 			name: 'Service: Next / Previous item',
+			description: 'Moves to the next or previous item of the service.',
 			options: [
 				{
 					id: 'direction',
 					type: 'dropdown',
 					label: 'Go to',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'next', label: 'Next item' },
 						{ id: 'previous', label: 'Previous item' },
@@ -144,9 +155,9 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 					default: 'next',
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
 				const steps = text(options.direction) === 'previous' ? -1 : 1
-				await ctx.run('Service: Next / Previous item', '1.1', async (client) =>
+				await ctx.run('Service: Next / Previous item', '1.1', signal, async (client) =>
 					client.post('/v1/show/advance-item', { steps }),
 				)
 			},
@@ -164,38 +175,53 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
-				const id = encodeURIComponent(text(options.service))
-				await ctx.run('Service: Select service', undefined, async (client) => client.post(`/v1/services/${id}/select`))
+			callback: async ({ options }, { signal }) => {
+				const service = picked(ctx, 'Service: Select service', 'a service', options.service)
+				if (!service) return
+				const id = encodeURIComponent(service)
+				await ctx.run('Service: Select service', undefined, signal, async (client) =>
+					client.post(`/v1/services/${id}/select`),
+				)
 			},
 		},
 		service_start: {
 			name: 'Service: Start',
 			description: 'Starts the service now, the same as Start (or Start early) in MxU Slides.',
 			options: [],
-			callback: async () => {
-				await ctx.run('Service: Start', '1.1', async (client) => client.post('/v1/service-tracking/start'))
+			callback: async (_action, { signal }) => {
+				await ctx.run('Service: Start', '1.1', signal, async (client) => client.post('/v1/service-tracking/start'))
 			},
 		},
 		clear_all: {
 			name: 'Clear All',
 			description: 'Takes everything off every screen at once.',
 			options: [],
-			callback: async () => {
-				await ctx.run('Clear All', undefined, async (client) => client.post('/v1/show/clear-all'))
+			callback: async (_action, { signal }) => {
+				await ctx.run('Clear All', undefined, signal, async (client) => client.post('/v1/show/clear-all'))
 			},
 		},
 		clear: {
 			name: 'Clear',
-			options: [{ id: 'target', type: 'dropdown', label: 'Clear', choices: CLEAR_TARGETS, default: 'slides' }],
-			callback: async ({ options }) => {
-				await ctx.run('Clear', undefined, async (client) =>
+			description: 'Takes one kind of thing off every screen, such as the slide or the music.',
+			options: [
+				{
+					id: 'target',
+					type: 'dropdown',
+					label: 'Clear',
+					choices: CLEAR_TARGETS,
+					default: 'slides',
+					disableAutoExpression: true,
+				},
+			],
+			callback: async ({ options }, { signal }) => {
+				await ctx.run('Clear', undefined, signal, async (client) =>
 					client.post('/v1/show/clear', { function: text(options.target) }),
 				)
 			},
 		},
 		clear_layer: {
 			name: 'Clear Layer',
+			description: 'Takes down whatever is on one layer.',
 			options: [
 				{
 					id: 'layer',
@@ -207,8 +233,8 @@ export function showActions(ctx: SlidesContext, choices: Choices): CompanionActi
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Clear Layer', undefined, async (client) =>
+			callback: async ({ options }, { signal }) => {
+				await ctx.run('Clear Layer', undefined, signal, async (client) =>
 					client.post('/v1/show/clear', { layer: text(options.layer) }),
 				)
 			},

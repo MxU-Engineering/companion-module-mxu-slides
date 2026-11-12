@@ -1,7 +1,7 @@
 import type { CompanionActionDefinitions, DropdownChoice } from '@companion-module/base'
-import type { SlidesClient } from '../api/client.js'
+import type { Requests } from '../api/client.js'
 import type { MixerKind } from '../api/types.js'
-import { Choices, number, ON_OFF_TOGGLE, resolveToggle, text, type SlidesContext } from '../context.js'
+import { Choices, number, ON_OFF_TOGGLE, picked, resolveToggle, text, type SlidesContext } from '../context.js'
 import { dbToGain, stripDb, type SlidesState } from '../state.js'
 import { parseDuration } from '../time.js'
 
@@ -29,6 +29,7 @@ export type AudioActions = {
 export const ALL_STRIPS = 'all'
 
 const KIND_LABEL: Record<MixerKind, string> = { input: 'Input', mix: 'Mix', output: 'Output' }
+const KIND_ARTICLE: Record<MixerKind, string> = { input: 'an', mix: 'a', output: 'an' }
 
 /** How long a level this module just asked for stands in for the one MxU Slides last reported. */
 const AIM_MS = 500
@@ -92,12 +93,17 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 	const change = async (
 		name: string,
 		kind: MixerKind,
-		strip: string,
+		chosen: unknown,
 		body: (id: string) => object | undefined,
+		signal: AbortSignal,
 	): Promise<void> => {
-		await ctx.run(name, needs(kind), async (client: SlidesClient) => {
+		const strip = picked(ctx, name, `${KIND_ARTICLE[kind]} ${KIND_LABEL[kind].toLowerCase()}`, chosen)
+		if (!strip) return
+		await ctx.run(name, needs(kind), signal, async (client: Requests) => {
 			const ids = strip === ALL_STRIPS ? ctx.state.strips(kind).map((candidate) => candidate.id) : [strip]
 			for (const id of ids) {
+				// Stopped part-way through every strip: what was sent stays, the rest is left alone.
+				if (signal.aborted) break
 				const payload = body(id)
 				if (!payload) continue
 				if ('gain' in payload && typeof payload.gain === 'number') aim(ctx.state, kind, id, payload.gain)
@@ -116,22 +122,32 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 
 	const mute = (kind: MixerKind): CompanionActionDefinitions<{ a: { options: MuteOptions } }>['a'] => ({
 		name: `${KIND_LABEL[kind]}: Mute`,
+		description: `Mutes or unmutes ${KIND_ARTICLE[kind]} ${KIND_LABEL[kind].toLowerCase()} in the MxU Slides mixer, or every one at once.`,
 		options: [
 			stripOption(kind, true),
-			{ id: 'mode', type: 'dropdown', label: 'Mute', choices: ON_OFF_TOGGLE, default: 'toggle' },
+			{
+				id: 'mode',
+				type: 'dropdown',
+				label: 'Mute',
+				choices: ON_OFF_TOGGLE,
+				default: 'toggle',
+				disableAutoExpression: true,
+			},
 		],
-		callback: async ({ options }) => {
+		callback: async ({ options }, { signal }) => {
 			const strip = text(options.strip)
-			// Toggling every strip follows the first one, so they end up the same.
+			// Toggling every strip unmutes them all when every one is muted, and mutes them all
+			// otherwise, so they end up the same.
 			const reference =
 				strip === ALL_STRIPS ? ctx.state.strips(kind).every((one) => one.muted) : !!ctx.state.strip(kind, strip)?.muted
 			const muted = resolveToggle(options.mode, reference)
-			await change(`${KIND_LABEL[kind]}: Mute`, kind, strip, () => ({ muted }))
+			await change(`${KIND_LABEL[kind]}: Mute`, kind, strip, () => ({ muted }), signal)
 		},
 	})
 
 	const level = (kind: MixerKind): CompanionActionDefinitions<{ a: { options: LevelOptions } }>['a'] => ({
 		name: `${KIND_LABEL[kind]}: Set level`,
+		description: `Sets the fader of ${KIND_ARTICLE[kind]} ${KIND_LABEL[kind].toLowerCase()} in the MxU Slides mixer.`,
 		options: [
 			stripOption(kind, false),
 			{
@@ -147,9 +163,9 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 				clampValues: true,
 			},
 		],
-		callback: async ({ options }) => {
+		callback: async ({ options }, { signal }) => {
 			const gain = dbToGain(number(options.db))
-			await change(`${KIND_LABEL[kind]}: Set level`, kind, text(options.strip), () => ({ gain }))
+			await change(`${KIND_LABEL[kind]}: Set level`, kind, options.strip, () => ({ gain }), signal)
 		},
 	})
 
@@ -170,21 +186,28 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 				clampValues: true,
 			},
 		],
-		callback: async ({ options }) => {
+		callback: async ({ options }, { signal }) => {
 			const name = `${KIND_LABEL[kind]}: Nudge level`
-			await change(name, kind, text(options.strip), (id) => {
-				const strip = ctx.state.strip(kind, id)
-				if (!strip) throw new Error(`no ${KIND_LABEL[kind].toLowerCase()} with that id in MxU Slides`)
-				// From all the way down, the first step up lands at the bottom of the fader's range.
-				const from = Math.max(-60, aimedDb(ctx.state, kind, id) ?? stripDb(strip))
-				return { gain: dbToGain(Math.min(0, from + number(options.step, 1))) }
-			})
+			await change(
+				name,
+				kind,
+				options.strip,
+				(id) => {
+					const strip = ctx.state.strip(kind, id)
+					if (!strip) throw new Error(`no ${KIND_LABEL[kind].toLowerCase()} with that id in MxU Slides`)
+					// From all the way down, the first step up lands at the bottom of the fader's range.
+					const from = Math.max(-60, aimedDb(ctx.state, kind, id) ?? stripDb(strip))
+					return { gain: dbToGain(Math.min(0, from + number(options.step, 1))) }
+				},
+				signal,
+			)
 		},
 	})
 
 	return {
 		music_playlist: {
 			name: 'Music: Play playlist',
+			description: 'Starts a playlist from the MxU Slides library.',
 			options: [
 				{
 					id: 'playlist',
@@ -195,15 +218,18 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
-				const id = encodeURIComponent(text(options.playlist))
-				await ctx.run('Music: Play playlist', undefined, async (client) =>
+			callback: async ({ options }, { signal }) => {
+				const playlist = picked(ctx, 'Music: Play playlist', 'a playlist', options.playlist)
+				if (!playlist) return
+				const id = encodeURIComponent(playlist)
+				await ctx.run('Music: Play playlist', undefined, signal, async (client) =>
 					client.post(`/v1/audio/playlists/${id}/fire`),
 				)
 			},
 		},
 		music_item: {
 			name: 'Music: Play item',
+			description: 'Plays one audio item from the MxU Slides library.',
 			options: [
 				{
 					id: 'item',
@@ -214,13 +240,18 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
-				const id = encodeURIComponent(text(options.item))
-				await ctx.run('Music: Play item', undefined, async (client) => client.post(`/v1/audio/items/${id}/fire`))
+			callback: async ({ options }, { signal }) => {
+				const item = picked(ctx, 'Music: Play item', 'an audio item', options.item)
+				if (!item) return
+				const id = encodeURIComponent(item)
+				await ctx.run('Music: Play item', undefined, signal, async (client) =>
+					client.post(`/v1/audio/items/${id}/fire`),
+				)
 			},
 		},
 		music_transport: {
 			name: 'Music: Play / Pause, Next, Previous, Seek, Stop',
+			description: 'Controls the music that is playing in MxU Slides.',
 			options: [
 				{
 					id: 'action',
@@ -246,8 +277,8 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					isVisibleExpression: "$(options:action) == 'seek'",
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Music: Play / Pause, Next, Previous, Seek, Stop', undefined, async (client) => {
+			callback: async ({ options }, { signal }) => {
+				await ctx.run('Music: Play / Pause, Next, Previous, Seek, Stop', undefined, signal, async (client) => {
 					const action = text(options.action)
 					if (action === 'stop') {
 						await client.post('/v1/audio/stop')
@@ -268,12 +299,18 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 			description: 'The on/off switch of an audio input in the mixer.',
 			options: [
 				stripOption('input', false),
-				{ id: 'mode', type: 'dropdown', label: 'Switch', choices: ON_OFF_TOGGLE, default: 'toggle' },
+				{
+					id: 'mode',
+					type: 'dropdown',
+					label: 'Switch',
+					choices: ON_OFF_TOGGLE,
+					default: 'toggle',
+					disableAutoExpression: true,
+				},
 			],
-			callback: async ({ options }) => {
-				const strip = text(options.strip)
-				const enabled = resolveToggle(options.mode, !!ctx.state.strip('input', strip)?.enabled)
-				await change('Input: On / Off', 'input', strip, () => ({ enabled }))
+			callback: async ({ options }, { signal }) => {
+				const enabled = resolveToggle(options.mode, !!ctx.state.strip('input', text(options.strip))?.enabled)
+				await change('Input: On / Off', 'input', options.strip, () => ({ enabled }), signal)
 			},
 		},
 		input_mute: mute('input'),

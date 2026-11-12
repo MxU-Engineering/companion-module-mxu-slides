@@ -29,6 +29,12 @@ export type ClientStatus =
 	| { kind: 'unauthorized' }
 	| { kind: 'wrong-product'; product: string }
 
+/** The requests one action sends. They stop waiting when Companion aborts the action. */
+export interface Requests {
+	get<T>(path: string): Promise<T>
+	post(path: string, body?: unknown): Promise<void>
+}
+
 export interface ClientOptions {
 	host: string
 	port: number
@@ -82,7 +88,7 @@ export function versionAtLeast(version: string | undefined, wanted: string): boo
 }
 
 /**
- * One connection to a MxU Slides Local API: a single WebSocket for state pushes and commands,
+ * One connection to an MxU Slides Local API: a single WebSocket for state pushes and commands,
  * plus plain HTTP for the two things the socket does not carry (the unauthenticated ping and
  * slide pictures). Reconnects on its own with growing waits; `stop()` ends everything.
  */
@@ -143,35 +149,58 @@ export class SlidesClient {
 		this.#teardown('Connection closed')
 	}
 
-	/** Runs one API operation over the socket and resolves with its response body. */
-	async command(method: string, path: string, body?: unknown): Promise<unknown> {
+	/**
+	 * Runs one API operation over the socket and resolves with its response body. When `signal`
+	 * aborts, it stops waiting at once and rejects with the signal's reason.
+	 */
+	async command(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<unknown> {
 		const socket = this.#socket
 		if (!socket || !this.#ready || socket.readyState !== WebSocket.OPEN) {
 			throw new LinkError('Not connected to MxU Slides')
 		}
+		signal?.throwIfAborted()
 		const id = String(this.#nextId++)
 		return new Promise<unknown>((resolve, reject) => {
-			const timer = setTimeout(() => {
+			const finish = (): void => {
+				clearTimeout(timer)
 				this.#pending.delete(id)
+				signal?.removeEventListener('abort', abort)
+			}
+			const abort = (): void => {
+				finish()
+				reject(signal?.reason as Error)
+			}
+			const timer = setTimeout(() => {
+				finish()
 				reject(new LinkError('MxU Slides did not answer in time'))
 			}, this.#timing.requestTimeout)
-			this.#pending.set(id, { resolve, reject, timer })
+			signal?.addEventListener('abort', abort, { once: true })
+			this.#pending.set(id, {
+				resolve: (value) => {
+					finish()
+					resolve(value)
+				},
+				reject: (error) => {
+					finish()
+					reject(error)
+				},
+				timer,
+			})
 			try {
 				socket.send(JSON.stringify({ type: 'command', id, method, path, ...(body === undefined ? {} : { body }) }))
 			} catch (error) {
-				clearTimeout(timer)
-				this.#pending.delete(id)
+				finish()
 				reject(new LinkError(error instanceof Error ? error.message : String(error)))
 			}
 		})
 	}
 
-	async get<T>(path: string): Promise<T> {
-		return (await this.command('GET', path)) as T
+	async get<T>(path: string, signal?: AbortSignal): Promise<T> {
+		return (await this.command('GET', path, undefined, signal)) as T
 	}
 
-	async post(path: string, body?: unknown): Promise<void> {
-		await this.command('POST', path, body ?? {})
+	async post(path: string, body?: unknown, signal?: AbortSignal): Promise<void> {
+		await this.command('POST', path, body ?? {}, signal)
 	}
 
 	/** A slide picture as a data URL, or null when Slides has none (nothing live, no next slide). */
@@ -193,21 +222,21 @@ export class SlidesClient {
 		if (this.#attempt === 0) this.#options.onStatus({ kind: 'connecting' })
 		const abort = new AbortController()
 		this.#connectAbort = abort
-		let info: ServerInfo
+		let info: ServerInfo | null
 		try {
 			const response = await fetch(`${this.baseUrl}/v1/ping`, {
 				signal: AbortSignal.any([abort.signal, AbortSignal.timeout(this.#timing.requestTimeout)]),
 			})
 			if (!response.ok) throw new Error(`HTTP ${response.status}`)
-			info = (await response.json()) as ServerInfo
+			info = (await response.json()) as ServerInfo | null
 		} catch (error) {
 			if (this.#stopped || abort.signal.aborted) return
 			this.#fail({ kind: 'unreachable', reason: describe(error) })
 			return
 		}
 		if (this.#stopped) return
-		if (info.product !== 'MxU Slides') {
-			this.#fail({ kind: 'wrong-product', product: String(info.product) })
+		if (!info || info.product !== 'MxU Slides') {
+			this.#fail({ kind: 'wrong-product', product: String(info?.product ?? 'something else') })
 			return
 		}
 		this.#info = info

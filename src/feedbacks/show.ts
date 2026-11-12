@@ -6,13 +6,13 @@ import { DIM, FAMILY, hexColor } from '../style.js'
 export type ShowFeedbacks = {
 	live: { type: 'boolean'; options: { target: string } }
 	deck_live: { type: 'boolean'; options: { deck: string } }
-	slide_number: { type: 'boolean'; options: { slide: string } }
-	section_live: { type: 'boolean'; options: { by: string; position: string; name: string } }
+	slide_number: { type: 'boolean'; options: { slide: number } }
+	section_live: { type: 'boolean'; options: { by: string; position: number; name: string } }
 	overlay_live: { type: 'boolean'; options: { overlay: string } }
 	alert_showing: { type: 'boolean'; options: { match: string; preset: string; text: string } }
 	service_state: { type: 'boolean'; options: { state: string } }
 	show_value: { type: 'value'; options: { field: string } }
-	section_value: { type: 'value'; options: { position: string; field: string } }
+	section_value: { type: 'value'; options: { position: number; field: string } }
 	slide_picture: { type: 'value'; options: { which: string } }
 }
 
@@ -167,6 +167,7 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 		deck_live: {
 			type: 'boolean',
 			name: 'Live presentation is',
+			description: 'True while a slide of this presentation is live.',
 			defaultStyle: { bgcolor: FAMILY.go.bright, color: FAMILY.go.ink },
 			options: [
 				{
@@ -183,15 +184,19 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 		slide_number: {
 			type: 'boolean',
 			name: 'Live slide number is',
+			description: 'True while the live slide has this number in its presentation.',
 			defaultStyle: { bgcolor: FAMILY.go.bright, color: FAMILY.go.ink },
 			options: [
 				{
 					id: 'slide',
-					type: 'textinput',
+					type: 'number',
 					label: 'Slide number',
 					description: 'The first slide is 1.',
-					default: '1',
-					useVariables: true,
+					default: 1,
+					min: 1,
+					max: 9999,
+					asInteger: true,
+					clampValues: true,
 				},
 			],
 			callback: ({ options }) => slideNumber(state) > 0 && slideNumber(state) === Math.round(number(options.slide, -1)),
@@ -215,11 +220,14 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 				},
 				{
 					id: 'position',
-					type: 'textinput',
+					type: 'number',
 					label: 'Section number',
 					description: 'The first section is 1.',
-					default: '1',
-					useVariables: true,
+					default: 1,
+					min: 1,
+					max: 99,
+					asInteger: true,
+					clampValues: true,
 					isVisibleExpression: "$(options:by) == 'position'",
 				},
 				{
@@ -243,6 +251,7 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 		overlay_live: {
 			type: 'boolean',
 			name: 'Overlay is live',
+			description: 'True while this overlay, or any overlay, is on screen.',
 			defaultStyle: { bgcolor: FAMILY.media.bright, color: FAMILY.media.ink },
 			options: [
 				{ id: 'overlay', type: 'dropdown', label: 'Overlay', choices: overlays, default: ANY, allowCustom: true },
@@ -256,6 +265,7 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 		alert_showing: {
 			type: 'boolean',
 			name: 'Alert is showing',
+			description: 'True while an alert is on screen: any alert, one preset, or one with certain words.',
 			defaultStyle: { bgcolor: FAMILY.conf.bright, color: FAMILY.conf.ink },
 			options: [
 				{
@@ -304,12 +314,14 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 		service_state: {
 			type: 'boolean',
 			name: 'Service is',
+			description: 'True while the service is running, before its start, ended, or not tracked.',
 			defaultStyle: { bgcolor: FAMILY.go.bright, color: FAMILY.go.ink },
 			options: [
 				{
 					id: 'state',
 					type: 'dropdown',
 					label: 'State',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'running', label: 'Running' },
 						{ id: 'preService', label: 'Before the start (pre-service)' },
@@ -325,7 +337,16 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 			type: 'value',
 			name: 'Show: a value',
 			description: 'A piece of the live show for a text, a color or an expression on a button.',
-			options: [{ id: 'field', type: 'dropdown', label: 'Value', choices: SHOW_FIELDS, default: 'position' }],
+			options: [
+				{
+					id: 'field',
+					type: 'dropdown',
+					label: 'Value',
+					choices: SHOW_FIELDS,
+					default: 'position',
+					disableAutoExpression: true,
+				},
+			],
 			callback: ({ options }) => showValue(state, text(options.field)),
 		},
 		section_value: {
@@ -335,16 +356,20 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 			options: [
 				{
 					id: 'position',
-					type: 'textinput',
+					type: 'number',
 					label: 'Section number',
 					description: 'The first section is 1.',
-					default: '1',
-					useVariables: true,
+					default: 1,
+					min: 1,
+					max: 99,
+					asInteger: true,
+					clampValues: true,
 				},
 				{
 					id: 'field',
 					type: 'dropdown',
 					label: 'Value',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'name', label: 'Name' },
 						{ id: 'color', label: 'Color' },
@@ -366,6 +391,7 @@ export function showFeedbacks(ctx: SlidesContext, choices: Choices): CompanionFe
 					id: 'which',
 					type: 'dropdown',
 					label: 'Slide',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'live', label: 'The live slide' },
 						{ id: 'next', label: 'The next slide' },

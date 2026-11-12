@@ -63,6 +63,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		output_preset_active: {
 			type: 'boolean',
 			name: 'Output Preset is active',
+			description: 'True while this Output Preset is on the screens, or while none is.',
 			defaultStyle: { bgcolor: FAMILY.output.bright, color: FAMILY.output.ink },
 			options: [
 				{
@@ -84,6 +85,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		confidence_layout: {
 			type: 'boolean',
 			name: 'Confidence Monitor layout is',
+			description: 'True while a Confidence Monitor shows this layout.',
 			defaultStyle: { bgcolor: FAMILY.conf.bright, color: FAMILY.conf.ink },
 			options: [
 				{
@@ -113,6 +115,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		recording: {
 			type: 'boolean',
 			name: 'Recording',
+			description: 'True while MxU Slides is recording.',
 			defaultStyle: { bgcolor: FAMILY.rec.bright, color: FAMILY.rec.ink },
 			options: [],
 			callback: () => state.capture?.recording.active === true,
@@ -120,6 +123,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		streaming: {
 			type: 'boolean',
 			name: 'Streaming',
+			description: 'True while MxU Slides is streaming.',
 			defaultStyle: { bgcolor: FAMILY.rec.bright, color: FAMILY.rec.ink },
 			options: [],
 			callback: () => state.capture?.streaming.active === true,
@@ -132,7 +136,8 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 				{
 					id: 'side',
 					type: 'dropdown',
-					label: 'Time of the',
+					label: 'Time running for',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'recording', label: 'Recording' },
 						{ id: 'streaming', label: 'Stream' },
@@ -145,6 +150,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		lock_on: {
 			type: 'boolean',
 			name: 'Lock is on',
+			description: 'True while the Lock holds what is on screen steady.',
 			defaultStyle: { bgcolor: FAMILY.system.bright, color: FAMILY.system.ink },
 			options: [],
 			callback: () => state.lock?.locked === true,
@@ -160,6 +166,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		scheduler_on: {
 			type: 'boolean',
 			name: 'Scheduler is on',
+			description: 'True while the MxU Slides Scheduler is on.',
 			defaultStyle: { bgcolor: FAMILY.system.bright, color: FAMILY.system.ink },
 			options: [],
 			callback: () => state.scheduler?.enabled === true,
@@ -167,6 +174,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		trigger_enabled: {
 			type: 'boolean',
 			name: 'Scheduler trigger is enabled',
+			description: 'True while this Scheduler trigger and its folder are on.',
 			defaultStyle: { bgcolor: FAMILY.system.bright, color: FAMILY.system.ink },
 			options: [
 				{
@@ -186,6 +194,7 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		midi_device_on: {
 			type: 'boolean',
 			name: 'MIDI device is on',
+			description: 'True while this MIDI device is on in MxU Slides.',
 			defaultStyle: { bgcolor: FAMILY.system.bright, color: FAMILY.system.ink },
 			options: [
 				{
@@ -201,14 +210,15 @@ export function systemFeedbacks(ctx: SlidesContext, choices: Choices): Companion
 		},
 		follow_role: {
 			type: 'boolean',
-			name: 'This computer is in charge',
-			description: 'For a booth computer with a backup that follows it: which of the two runs the service.',
+			name: "This computer's role is",
+			description: 'For a booth computer with a backup that follows it: in charge, backing up, or handed over.',
 			defaultStyle: { bgcolor: FAMILY.timer.bright, color: FAMILY.timer.ink },
 			options: [
 				{
 					id: 'role',
 					type: 'dropdown',
 					label: 'This computer is',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'in_charge', label: 'In charge' },
 						{ id: 'took_over', label: 'A backup that took over' },

@@ -3,6 +3,7 @@ import { InstanceStatus } from '@companion-module/base'
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { SlidesController } from '../controller.js'
+import type { FakeSlides } from './fake-slides.js'
 import { rig, sleep, TestHost, TIMING, until, type Rig } from './harness.js'
 
 let open: Rig | undefined
@@ -125,6 +126,52 @@ describe('connecting', () => {
 	})
 })
 
+/** A signal that aborts the moment the fake receives a request matching `method path`. */
+function abortOn(fake: FakeSlides, method: string, path: RegExp): AbortSignal {
+	const abort = new AbortController()
+	const push = fake.requests.push.bind(fake.requests)
+	fake.requests.push = (...requests) => {
+		if (requests.some((request) => request.method === method && path.test(request.path))) abort.abort()
+		return push(...requests)
+	}
+	return abort.signal
+}
+
+describe('aborted actions', () => {
+	it('stops waiting and says nothing when Companion aborts a press', async () => {
+		const { fake, host, press } = await connect()
+		fake.silence(true)
+		host.clear()
+		const abort = new AbortController()
+		const started = Date.now()
+		setTimeout(() => abort.abort(), 20)
+		await press('clear_all', {}, abort.signal)
+		assert.ok(Date.now() - started < TIMING.requestTimeout, 'it did not wait for the answer')
+		assert.deepEqual(host.problems(), [])
+	})
+
+	it('stops Mute All at the strip it was sending', async () => {
+		const { fake, host, press } = await connect()
+		host.clear()
+		const signal = abortOn(fake, 'POST', /^\/v1\/audio\/outputs\//)
+		await press('output_mute', { strip: 'all', mode: 'on' }, signal)
+		assert.equal(fake.commands().filter((command) => command.startsWith('POST /v1/audio/outputs/')).length, 1)
+		assert.deepEqual(host.problems(), [])
+	})
+
+	it('sets nothing when a MIDI or Lock toggle is aborted while it reads', async () => {
+		const { fake, host, press } = await connect()
+		host.clear()
+		await press('midi_device', { device: 'midi-lights', mode: 'toggle' }, abortOn(fake, 'GET', /^\/v1\/midi\/devices$/))
+		await press('lock', { action: 'toggle' }, abortOn(fake, 'GET', /^\/v1\/show\/lock$/))
+		assert.deepEqual(
+			fake.commands().filter((command) => command.includes('/midi/') || command.includes('/lock')),
+			[],
+		)
+		assert.deepEqual(host.problems(), [])
+	})
+})
+
 describe('updates', () => {
 	it('rechecks only the feedbacks that read what changed', async () => {
 		const { fake, host, settle } = await connect()
@@ -174,6 +221,32 @@ describe('updates', () => {
 		await sleep(700)
 		await settle()
 		assert.equal(host.definitions, before + 1, 'an unchanged library is not redefined')
+	})
+
+	it('leaves the lists alone for meters, pictures and health, which are in no list', async () => {
+		const { controller, host, settle } = await connect()
+		const before = host.definitions
+		controller.state.timers[1].name = 'Message'
+		controller.changed(['meters', 'pictures', 'health'])
+		await settle()
+		assert.equal(host.definitions, before)
+		controller.changed(['timers'])
+		await settle()
+		assert.equal(host.definitions, before + 1)
+	})
+
+	it('drops a library read still waiting when Slides goes away', async () => {
+		const { fake, controller } = await connect()
+		const libraryReads = (): number =>
+			fake.requests.filter((request) => request.path === '/v1/library/presentations').length
+		fake.push('library')
+		await sleep(50)
+		const before = libraryReads()
+		fake.dropConnections()
+		await until(() => controller.state.info === undefined, 'forgotten')
+		await until(() => controller.state.info !== undefined, 'back')
+		await sleep(600)
+		assert.equal(libraryReads(), before + 1, 'read once on connecting again, not again for the old push')
 	})
 
 	it('counts timers itself, once a second, from the anchors', async () => {
@@ -788,6 +861,39 @@ describe('what is defined', () => {
 		const definition = empty.actions?.combo_run as { options: { choices?: { id: string; label: string }[] }[] }
 		assert.deepEqual(definition.options[0].choices, [{ id: '', label: '(none in MxU Slides yet)' }])
 		controller.stop()
+	})
+
+	it("names variables in preset text by the connection's label, and follows a rename", async () => {
+		const { fake, host, controller } = await connect()
+		const text = (): string => JSON.stringify(host.presets)
+		assert.match(text(), /\$\(slides:timer_sermon\)/)
+		host.label = 'booth'
+		controller.restart({ host: '127.0.0.1', port: fake.port, meters: false }, { apiKey: fake.options.key })
+		await until(() => text().includes('$(booth:timer_sermon)'), 'the presets under the new label', 4000)
+		assert.doesNotMatch(text(), /\$\(slides:/)
+	})
+
+	it('sends nothing for a button made before MxU Slides listed anything, and says what to pick', async () => {
+		const { fake, host, press } = await connect()
+		const cases: [Parameters<Rig['press']>[0], Record<string, string>, string][] = [
+			['media_fire', { media: '' }, 'a media item'],
+			['service_select', { service: '' }, 'a service'],
+			['video_input_fire', { input: '' }, 'a video input'],
+			['overlay', { overlay: '', mode: 'toggle' }, 'an overlay'],
+			['combo_run', { combo: '' }, 'an Action Combo'],
+			['timer', { timer: '', action: 'toggle' }, 'a timer'],
+			['timer_set', { timer: '', mode: 'countdown', length: '5:00' }, 'a timer'],
+			['timer_adjust', { timer: '', direction: 'add', amount: '30' }, 'a timer'],
+			['midi_device', { device: '', mode: 'toggle' }, 'a MIDI device'],
+			['input_mute', { strip: '', mode: 'toggle' }, 'an input'],
+		]
+		const before = fake.commands().length
+		for (const [action, options, what] of cases) {
+			await press(action, options)
+			assert.match(host.problems().at(-1) ?? '', new RegExp(`: Pick ${what} first\\.$`), action)
+		}
+		assert.equal(fake.commands().length, before)
+		assert.equal(fake.requests.filter((request) => request.path.startsWith('/v1/midi/devices')).length, 1)
 	})
 
 	it('defines a variable for every value it sets', async () => {

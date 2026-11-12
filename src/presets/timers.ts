@@ -9,7 +9,6 @@ import {
 	caption,
 	expression,
 	glyph,
-	LABEL,
 	label,
 	layered,
 	local,
@@ -42,7 +41,7 @@ export const ADJUST_STEPS: [amount: string, text: string, key: string][] = [
 const BAR = { x: 8, y: 56, width: 56, height: 5 }
 
 /** The timer on a button: name, digits and a bar. Amber bar in warning, red button when over. */
-function display(timer: string, variable: string, controllable: boolean): Preset {
+function display(timer: string, variable: string, controllable: boolean, connection: string): Preset {
 	const steps = controllable ? press({ actionId: 'timer', options: { timer, action: 'toggle' } }) : press()
 	const red = FAMILY.clear.bright
 	const state = (wanted: string): { feedbackId: 'timer_state'; options: { timer: string; state: string } } => ({
@@ -78,7 +77,7 @@ function display(timer: string, variable: string, controllable: boolean): Preset
 	]
 	return alternatives(
 		layered('Timer', elements, steps, feedbacks, variables),
-		simple('Timer', `$(${LABEL}:${variable}_name)\\n$(${LABEL}:${variable})`, steps, [
+		simple('Timer', `$(${connection}:${variable}_name)\\n$(${connection}:${variable})`, steps, [
 			whenSimple(state('warning'), { color: FAMILY.conf.bright }),
 			whenSimple(state('over'), { bgcolor: red, color: 0xffffff }),
 		]),
@@ -153,19 +152,19 @@ export function isPermanentTimer(id: string): boolean {
 	return id.startsWith('service_tracking.')
 }
 
-export function timerPresets(state: SlidesState): { sections: Section[]; presets: Presets } {
+export function timerPresets(state: SlidesState, connection: string): { sections: Section[]; presets: Presets } {
 	const presets: Presets = {}
 	const groups: { id: string; type: 'simple'; name: string; description?: string; presets: string[] }[] = []
 	const permanent: string[] = []
 	for (const timer of state.timers) {
 		const id = `timer_${timer.id}`
 		if (isPermanentTimer(timer.id)) {
-			presets[`${id}_display`] = display(timer.id, timerVariable(state, timer.id), false)
+			presets[`${id}_display`] = display(timer.id, timerVariable(state, timer.id), false, connection)
 			permanent.push(`${id}_display`)
 			continue
 		}
 		const ids = [`${id}_display`, `${id}_start`, `${id}_reset`]
-		presets[`${id}_display`] = display(timer.id, timerVariable(state, timer.id), true)
+		presets[`${id}_display`] = display(timer.id, timerVariable(state, timer.id), true, connection)
 		presets[`${id}_start`] = startPause(timer.id)
 		presets[`${id}_reset`] = tile({
 			name: 'Timer: Reset',

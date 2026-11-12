@@ -9,7 +9,6 @@ import {
 	caption,
 	expression,
 	glyph,
-	LABEL,
 	layered,
 	local,
 	localValue,
@@ -87,7 +86,7 @@ function mutedFeedback(kind: MixerKind, strip: string): Lit {
  * A mixer strip on a button: meter, fader, name, level and a pill. An input's button switches
  * it on or off; a mix or an output's button mutes it. The dial version rides the level instead.
  */
-function strip(state: SlidesState, kind: MixerKind, id: string, dial: boolean): Preset {
+function strip(state: SlidesState, kind: MixerKind, id: string, dial: boolean, connection: string): Preset {
 	const stereo = kind !== 'input'
 	const name = `${KIND_LABEL[kind]}${dial ? ' dial' : ''}`
 	const muted = `${local('state')} == 'muted'`
@@ -121,13 +120,13 @@ function strip(state: SlidesState, kind: MixerKind, id: string, dial: boolean): 
 	const variable = stripVariable(state, kind, id)
 	return alternatives(
 		layered(name, elements, steps, [], stripVariables(kind, id, stereo)),
-		simple(name, `$(${LABEL}:${variable}_name)\\n$(${LABEL}:${variable}_db) dB`, steps, [
+		simple(name, `$(${connection}:${variable}_name)\\n$(${connection}:${variable}_db) dB`, steps, [
 			whenSimple(mutedFeedback(kind, id), { bgcolor: FAMILY.clear.bright, color: FAMILY.clear.ink }),
 		]),
 	)
 }
 
-export function mixerPresets(state: SlidesState): { sections: Section[]; presets: Presets } {
+export function mixerPresets(state: SlidesState, connection: string): { sections: Section[]; presets: Presets } {
 	const presets: Presets = {}
 	const groups: Extract<Section['definitions'][number], object>[] = []
 	for (const kind of ['input', 'mix', 'output'] as const) {
@@ -136,8 +135,8 @@ export function mixerPresets(state: SlidesState): { sections: Section[]; presets
 		const buttons: string[] = []
 		const dials: string[] = []
 		for (const one of strips) {
-			presets[`${kind}_${one.id}_strip`] = strip(state, kind, one.id, false)
-			presets[`${kind}_${one.id}_dial`] = strip(state, kind, one.id, true)
+			presets[`${kind}_${one.id}_strip`] = strip(state, kind, one.id, false, connection)
+			presets[`${kind}_${one.id}_dial`] = strip(state, kind, one.id, true, connection)
 			buttons.push(`${kind}_${one.id}_strip`)
 			dials.push(`${kind}_${one.id}_dial`)
 		}

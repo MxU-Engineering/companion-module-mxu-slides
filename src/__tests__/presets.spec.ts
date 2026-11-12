@@ -77,7 +77,7 @@ function variants(preset: unknown): AnyVariant[] {
 
 describe('presets', () => {
 	const state = filled()
-	const { sections, presets } = GetPresets(state)
+	const { sections, presets } = GetPresets(state, 'slides')
 	const actions = GetActions(context(state)) as Record<string, { options: { id: string }[] }>
 	const feedbacks = GetFeedbacks(context(state)) as Record<string, { options: { id: string }[]; type: string }>
 	const composites = Object.keys(GetCompositeElements())
@@ -137,7 +137,7 @@ describe('presets', () => {
 			'timers',
 			renamed.timers.map((timer) => ({ ...timer, name: `${timer.name} 2` })),
 		)
-		assert.deepEqual(Object.keys(GetPresets(renamed).presets).sort(), Object.keys(presets).sort())
+		assert.deepEqual(Object.keys(GetPresets(renamed, 'slides').presets).sort(), Object.keys(presets).sort())
 		assert.ok('combo_combo-live' in presets)
 		assert.ok('timer_timer-sermon_add_30s' in presets)
 		assert.ok('input_in-pastor_dial' in presets)
@@ -242,6 +242,29 @@ describe('presets', () => {
 		assert.ok(ids.includes('trigger_trigger-preservice'))
 	})
 
+	it("names variables in the fallback text by the connection's label", () => {
+		const texts = (label: string): string[] =>
+			Object.values(GetPresets(state, label).presets).map((preset) => variants(preset)[1].style?.text ?? '')
+		const named = texts('booth-mac').filter((text) => text.includes('$('))
+		assert.ok(named.length > 10)
+		for (const text of named) assert.doesNotMatch(text, /\$\((?!booth-mac:)/, text)
+		assert.ok(texts('slides').some((text) => text.includes('$(slides:timer_sermon)')))
+	})
+
+	it('turns off expressions on every dropdown with a fixed list; lists from MxU Slides take an id', () => {
+		for (const [id, definition] of Object.entries({ ...actions, ...feedbacks })) {
+			for (const option of definition.options as {
+				id: string
+				type: string
+				allowCustom?: boolean
+				disableAutoExpression?: boolean
+			}[]) {
+				if (option.type !== 'dropdown') continue
+				assert.ok(option.allowCustom === true || option.disableAutoExpression === true, `${id}: ${option.id}`)
+			}
+		}
+	})
+
 	it('says Current and Next, never Now, and an input that is on says ON', () => {
 		const text = JSON.stringify(presets)
 		assert.doesNotMatch(text, /\bNOW\b|\bNow\b/)
@@ -273,7 +296,7 @@ describe('presets', () => {
 			{ id: 'pack.b.cta', name: 'Call to Action', folder: 'Bold Blocks/Lower Thirds' },
 			{ id: 'pack.b.ticker', name: 'Ticker', folder: 'Bold Blocks/Lower Thirds' },
 		])
-		const folders = GetPresets(state)
+		const folders = GetPresets(state, 'slides')
 		const overlays = folders.sections.find((section) => section.id === 'overlays')
 		const groups = overlays?.definitions as { name: string; presets: string[] }[]
 		assert.deepEqual(
@@ -304,7 +327,7 @@ describe('presets', () => {
 	})
 
 	it('still offers the fixed presets before anything is connected', () => {
-		const empty = GetPresets(new SlidesState())
+		const empty = GetPresets(new SlidesState(), 'slides')
 		assert.ok('slide_next' in empty.presets)
 		assert.ok('clear_all' in empty.presets)
 		assert.equal(
@@ -345,7 +368,7 @@ describe('presets', () => {
 	})
 
 	it('holds only glyphs that some preset can draw', () => {
-		const everything = JSON.stringify([presets, GetPresets(new SlidesState()).presets])
+		const everything = JSON.stringify([presets, GetPresets(new SlidesState(), 'slides').presets])
 		const comboGlyphs = /\.(dark|white)$/
 		for (const [key, image] of Object.entries(ICONS)) {
 			if (comboGlyphs.test(key)) continue

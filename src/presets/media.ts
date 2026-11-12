@@ -8,7 +8,6 @@ import {
 	caption,
 	expression,
 	glyph,
-	LABEL,
 	label,
 	layered,
 	local,
@@ -30,7 +29,7 @@ type Section = CompanionPresetSection<ModuleSchema>
 const BAR = { x: 8, y: 52, width: 56, height: 4 }
 
 /** Play / Pause with the time left, a progress bar and the video's name. */
-function transport(): Preset {
+function transport(connection: string): Preset {
 	const steps = press({ actionId: 'video_transport', options: { target: 'any', action: 'toggle', seconds: '0' } })
 	const playing = { feedbackId: 'video_playing' as const, options: { target: 'any' } }
 	const elements = [
@@ -59,7 +58,7 @@ function transport(): Preset {
 			[when(playing, [set('idle', 'enabled', false), set('paused', 'enabled', false), set('pause', 'enabled', true)])],
 			variables,
 		),
-		simple('Video: Play / Pause', `$(${LABEL}:video_name)\\n-$(${LABEL}:video_remaining)`, steps, [
+		simple('Video: Play / Pause', `$(${connection}:video_name)\\n-$(${connection}:video_remaining)`, steps, [
 			whenSimple(playing, { color: TRANSPORT.running }),
 		]),
 	)
@@ -124,11 +123,11 @@ function musicStop(): Preset {
 	)
 }
 
-export function mediaPresets(state: SlidesState): { sections: Section[]; presets: Presets } {
+export function mediaPresets(state: SlidesState, connection: string): { sections: Section[]; presets: Presets } {
 	const skip = (seconds: string): ReturnType<typeof press> =>
 		press({ actionId: 'video_transport', options: { target: 'any', action: 'skip', seconds } })
 	const presets: Presets = {
-		video_play_pause: transport(),
+		video_play_pause: transport(connection),
 		video_restart: tile({
 			name: 'Video: Restart',
 			family: 'media',

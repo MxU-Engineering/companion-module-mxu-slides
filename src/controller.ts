@@ -9,7 +9,14 @@ import {
 	type LogLevel,
 } from '@companion-module/base'
 import { GetActions, type ActionsSchema } from './actions.js'
-import { LinkError, SlidesClient, SlidesError, type ClientStatus, type ClientTiming } from './api/client.js'
+import {
+	LinkError,
+	SlidesClient,
+	SlidesError,
+	type ClientStatus,
+	type ClientTiming,
+	type Requests,
+} from './api/client.js'
 import {
 	LIBRARY_KINDS,
 	type ActionComboEntry,
@@ -38,6 +45,8 @@ import {
  * and read back what was defined, set and rechecked.
  */
 export interface ModuleHost {
+	/** The connection's name in Companion, which presets use in their variables. */
+	readonly label: string
 	log(level: LogLevel, message: string): void
 	updateStatus(status: InstanceStatus, message?: string | null): void
 	setActionDefinitions(actions: CompanionActionDefinitions<ActionsSchema>): void
@@ -91,6 +100,8 @@ const REDEFINE_MS = 150
 const LIBRARY_MS = 400
 const SNAPSHOT_GRACE_MS = 1500
 const METER_VARIABLES_MS = 500
+/** What changes many times a second and is in no list: a flush of only these leaves the lists alone. */
+const QUIET: Aspect[] = ['meters', 'pictures', 'health']
 
 /**
  * The module's working part: one connection to MxU Slides, the state it reports, and what
@@ -141,6 +152,9 @@ export class SlidesController implements SlidesContext {
 		this.#secrets = secrets ?? {}
 		this.#disconnect()
 		this.#forget()
+		// The connection may have a new label: rebuild now, and again once Slides has answered.
+		this.#shape = ''
+		this.#define()
 		this.#connect()
 	}
 
@@ -155,7 +169,12 @@ export class SlidesController implements SlidesContext {
 
 	// MARK: SlidesContext
 
-	async run(name: string, needs: string | undefined, command: (client: SlidesClient) => Promise<void>): Promise<void> {
+	async run(
+		name: string,
+		needs: string | undefined,
+		signal: AbortSignal,
+		command: (client: Requests) => Promise<void>,
+	): Promise<void> {
 		const client = this.#client
 		if (!client?.connected) {
 			this.log('warn', `${name}: not connected to MxU Slides.`)
@@ -166,8 +185,13 @@ export class SlidesController implements SlidesContext {
 			return
 		}
 		try {
-			await command(client)
+			await command({
+				get: async <T>(path: string) => client.get<T>(path, signal),
+				post: async (path: string, body?: unknown) => client.post(path, body, signal),
+			})
 		} catch (error) {
+			// Companion stopped the action: it ends quietly.
+			if (signal.aborted) return
 			const hint =
 				error instanceof SlidesError && error.status === 403
 					? ' Use an Operate key from Settings › Network & API in MxU Slides.'
@@ -261,7 +285,10 @@ export class SlidesController implements SlidesContext {
 		this.#pictureCache.clear()
 		this.#warned.clear()
 		clearInterval(this.#clock)
-		this.#clock = undefined
+		clearTimeout(this.#snapshotTimer)
+		clearTimeout(this.#lockTimer)
+		clearTimeout(this.#libraryTimer)
+		this.#clock = this.#snapshotTimer = this.#lockTimer = this.#libraryTimer = undefined
 		const cleared: Record<string, VariableValue> = {}
 		for (const id of Object.keys(this.#sent)) cleared[id] = ''
 		if (Object.keys(cleared).length) this.#host.setVariableValues(cleared)
@@ -326,6 +353,7 @@ export class SlidesController implements SlidesContext {
 		}
 		if (snapshots) {
 			// Slides sends each topic's state on subscribe; read only what has not arrived after a moment.
+			clearTimeout(this.#snapshotTimer)
 			this.#snapshotTimer = setTimeout(readTopics, SNAPSHOT_GRACE_MS)
 		} else {
 			readTopics()
@@ -427,7 +455,8 @@ export class SlidesController implements SlidesContext {
 			this.#lockTimer = setTimeout(() => this.refresh('lock'), LOCK_READ_MS)
 		}
 
-		const shape = shapeKey(this.state)
+		// Meters, pictures and health never change a list, so they skip building the shape.
+		const shape = aspects.every((aspect) => QUIET.includes(aspect)) ? this.#shape : shapeKey(this.state)
 		if (shape !== this.#shape) {
 			this.#shape = shape
 			clearTimeout(this.#redefineTimer)
@@ -466,7 +495,7 @@ export class SlidesController implements SlidesContext {
 		this.#host.setFeedbackDefinitions(GetFeedbacks(this))
 		this.#host.setCompositeElementDefinitions(GetCompositeElements())
 		this.#host.setVariableDefinitions(GetVariableDefinitions(this.state))
-		const { sections, presets } = GetPresets(this.state)
+		const { sections, presets } = GetPresets(this.state, this.#host.label)
 		this.#host.setPresetDefinitions(sections, presets)
 		// A variable that went away with its timer or strip is forgotten; the rest are sent afresh.
 		this.#sent = {}

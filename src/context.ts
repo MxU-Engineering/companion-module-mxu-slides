@@ -1,5 +1,5 @@
 import type { DropdownChoice, LogLevel } from '@companion-module/base'
-import type { SlidesClient } from './api/client.js'
+import type { Requests } from './api/client.js'
 import type { LibraryKind } from './api/types.js'
 import type { Aspect, SlidesState } from './state.js'
 
@@ -15,9 +15,15 @@ export interface SlidesContext {
 	log(level: LogLevel, message: string): void
 	/**
 	 * Runs one action against MxU Slides. A Slides too old for it gets one clear log line, and a
-	 * command Slides refuses is logged against this action only; neither one throws.
+	 * command Slides refuses is logged against this action only; neither one throws. Once
+	 * `signal` aborts, its requests stop waiting and the action ends without a word.
 	 */
-	run(name: string, needs: string | undefined, command: (client: SlidesClient) => Promise<void>): Promise<void>
+	run(
+		name: string,
+		needs: string | undefined,
+		signal: AbortSignal,
+		command: (client: Requests) => Promise<void>,
+	): Promise<void>
 	/** Reads state again that Slides does not push. */
 	refresh(what: Refreshable): void
 	/** An action changed this part of the state itself, ahead of the push that will confirm it. */
@@ -34,6 +40,16 @@ export function text(value: unknown): string {
 export function number(value: unknown, fallback = 0): number {
 	const parsed = typeof value === 'number' ? value : Number.parseFloat(text(value))
 	return Number.isFinite(parsed) ? parsed : fallback
+}
+
+/**
+ * The id an option names. Empty when the button was made before MxU Slides listed anything to
+ * pick: that logs a warning and gives undefined, so nothing is sent.
+ */
+export function picked(ctx: SlidesContext, name: string, what: string, value: unknown): string | undefined {
+	const id = text(value)
+	if (!id) ctx.log('warn', `${name}: Pick ${what} first.`)
+	return id || undefined
 }
 
 export const NONE_CHOICE: DropdownChoice<string> = { id: '', label: '(none in MxU Slides yet)' }

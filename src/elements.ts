@@ -23,14 +23,14 @@ export type CompositeElementsSchema = {
 	}>
 }
 
-type Expression = { isExpression: true; value: string }
+export type Expression = { isExpression: true; value: string }
 
-function expression(value: string): Expression {
+export function expression(value: string): Expression {
 	return { isExpression: true, value }
 }
 
 /** A length in the 72-unit button space, as the percentage Companion positions elements with. */
-function pct(units: number): number {
+export function pct(units: number): number {
 	return Math.round((units / 72) * 10000) / 100
 }
 

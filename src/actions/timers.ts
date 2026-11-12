@@ -1,5 +1,5 @@
 import type { CompanionActionDefinitions } from '@companion-module/base'
-import { Choices, number, text, type SlidesContext } from '../context.js'
+import { Choices, number, picked, text, type SlidesContext } from '../context.js'
 import { parseDuration } from '../time.js'
 
 export type TimerActions = {
@@ -22,12 +22,14 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 	return {
 		timer: {
 			name: 'Timer: Start, Pause, Reset',
+			description: 'Starts, pauses or resets a timer in MxU Slides.',
 			options: [
 				timerOption,
 				{
 					id: 'action',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'toggle', label: 'Start / Pause' },
 						{ id: 'play', label: 'Start' },
@@ -37,19 +39,21 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					default: 'toggle',
 				},
 			],
-			callback: async ({ options }) => {
-				const id = text(options.timer)
+			callback: async ({ options }, { signal }) => {
+				const id = picked(ctx, 'Timer: Start, Pause, Reset', 'a timer', options.timer)
+				if (!id) return
 				let action = text(options.action)
 				if (action === 'toggle') {
 					action = ctx.state.timers.find((timer) => timer.id === id)?.running ? 'pause' : 'play'
 				}
-				await ctx.run('Timer: Start, Pause, Reset', undefined, async (client) =>
+				await ctx.run('Timer: Start, Pause, Reset', undefined, signal, async (client) =>
 					client.post(`/v1/timers/${encodeURIComponent(id)}/${action}`),
 				)
 			},
 		},
 		timer_set: {
 			name: 'Timer: Set length or end time',
+			description: 'Sets how long a timer counts, or the time of day it counts down to.',
 			options: [
 				timerOption,
 				{
@@ -76,7 +80,8 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 				{
 					id: 'hour',
 					type: 'number',
-					label: 'Hour (0 to 23)',
+					label: 'Hour',
+					description: '0 to 23, on the 24-hour clock.',
 					default: 9,
 					min: 0,
 					max: 23,
@@ -96,8 +101,10 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					isVisibleExpression: "$(options:mode) == 'countdownToTime'",
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Timer: Set length or end time', '1.1', async (client) => {
+			callback: async ({ options }, { signal }) => {
+				const timer = picked(ctx, 'Timer: Set length or end time', 'a timer', options.timer)
+				if (!timer) return
+				await ctx.run('Timer: Set length or end time', '1.1', signal, async (client) => {
 					const mode = text(options.mode)
 					let body: object
 					if (mode === 'countdownToTime') {
@@ -107,7 +114,7 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 						if (length === undefined || length < 0) throw new Error(`"${text(options.length)}" is not a length of time`)
 						body = { mode, durationSeconds: length }
 					}
-					await client.post(`/v1/timers/${encodeURIComponent(text(options.timer))}/configure`, body)
+					await client.post(`/v1/timers/${encodeURIComponent(timer)}/configure`, body)
 				})
 			},
 		},
@@ -121,6 +128,7 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					id: 'direction',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'add', label: 'Add time' },
 						{ id: 'subtract', label: 'Subtract time' },
@@ -136,13 +144,15 @@ export function timerActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					useVariables: true,
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Timer: Add or subtract time', '1.1', async (client) => {
+			callback: async ({ options }, { signal }) => {
+				const timer = picked(ctx, 'Timer: Add or subtract time', 'a timer', options.timer)
+				if (!timer) return
+				await ctx.run('Timer: Add or subtract time', '1.1', signal, async (client) => {
 					const amount = parseDuration(text(options.amount))
 					if (amount === undefined || amount === 0)
 						throw new Error(`"${text(options.amount)}" is not an amount of time`)
 					const seconds = text(options.direction) === 'subtract' ? -Math.abs(amount) : Math.abs(amount)
-					await client.post(`/v1/timers/${encodeURIComponent(text(options.timer))}/adjust`, { seconds })
+					await client.post(`/v1/timers/${encodeURIComponent(timer)}/adjust`, { seconds })
 				})
 			},
 		},

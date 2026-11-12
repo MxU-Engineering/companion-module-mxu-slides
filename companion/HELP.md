@@ -8,7 +8,7 @@ The module keeps one live connection to MxU Slides. Buttons and variables follow
 
 - MxU Slides on a Mac on the same network (or the same computer).
 - Companion 5.0 or newer.
-- Most of the module works with any MxU Slides that has the Local API. The parts marked **1.1** below need a MxU Slides with API 1.1 or newer. Against an older one those actions do nothing and write one line to the log: "needs a newer MxU Slides".
+- Most of the module works with any MxU Slides that has the Local API. The parts marked **1.1** below need an MxU Slides with API 1.1 or newer. Against an older one those actions do nothing and write one line to the log: "needs a newer MxU Slides".
 
 ## Setup
 
@@ -52,25 +52,25 @@ Open the **Presets** tab and pick the connection. Every preset is drawn to fit t
 
 ![Presets](help-images/presets.png)
 
-Buttons are dark when they are not in use and filled with their color while live. The clear buttons are the exception: a slide is up for most of a service, so they stay dark, dim while there is nothing to clear and bright with a ring while there is. Clear All is always red.
+Every button follows one rule: grey means off, or nothing to act on right now; white means you can press it any time; color means it is on, and pressing it turns it off. A clear button is grey while its layer is empty and red while it has something to clear. Play keys are grey when stopped, a green Pause while running and a white Resume while paused; Stop is red while there is something to stop.
 
-| Section           | What is in it                                                                                                                                      |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Slides            | Previous, Next, Now and Next with the slide picture (**1.1**), and eight section buttons that take the names and colors of the live song (**1.1**) |
-| Service           | Previous item, Next item, Start Service (**1.1**)                                                                                                  |
-| Clear             | Clear All, and Slide, Media, Overlays, Music, Alerts, Inputs                                                                                       |
-| Action Combos     | One per combo, in the color and with the icon it has in MxU Slides (**1.1** for color and icon)                                                    |
-| Timers            | Per timer: the time on a button, Start / Pause, Reset, and add and subtract buttons for 1s, 5s, 10s, 15s, 30s, 1 min and 5 min (**1.1**)           |
-| Media             | Play / Pause with the time left, Restart, skip back and forward                                                                                    |
-| Video Inputs      | One per camera, NDI or Blackmagic input (**1.1**)                                                                                                  |
-| Overlays          | One per overlay                                                                                                                                    |
-| Alerts            | One per alert preset, and Hide Alert                                                                                                               |
-| Music             | One per playlist, Play / Pause, Next, Stop                                                                                                         |
-| Audio Mixer       | A strip per input, mix and output with name, level, meter and state, and a second set made for dials (**1.1** for mixes, outputs and live meters)  |
-| Screens           | One per Output Preset, one per Confidence Monitor layout (**1.1**), Identify (**1.1**)                                                             |
-| Record and Stream | Record and Stream, each with the time it has been running (**1.1**)                                                                                |
-| Scheduler         | The Scheduler switch, and Run Now for each trigger                                                                                                 |
-| System            | Lock, Pull Updates, Take Over                                                                                                                      |
+| Section           | What is in it                                                                                                                                                                                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slides            | Previous, Next, Current and Next with the slide picture (**1.1**), eight section buttons that take the names and colors of the live song (**1.1**), and one-thing buttons: Current and Next picture, Current and Next section, the slide number (4 / 8) and Slides Left |
+| Service           | Previous item, Next item, Start Service (**1.1**)                                                                                                                                                                                                                       |
+| Clear             | Clear All, and Slide, Media, Overlays, Music, Alerts, Inputs                                                                                                                                                                                                            |
+| Action Combos     | One per combo, in the color and with the icon it has in MxU Slides (**1.1** for color and icon)                                                                                                                                                                         |
+| Timers            | Per timer: the time on a button, Start / Pause, Reset, and add and subtract buttons for 1s, 5s, 10s, 15s, 30s, 1 min and 5 min (**1.1**)                                                                                                                                |
+| Media             | Play / Pause with the time left, Restart, skip back and forward                                                                                                                                                                                                         |
+| Video Inputs      | One per camera, NDI or Blackmagic input (**1.1**)                                                                                                                                                                                                                       |
+| Overlays          | One per overlay                                                                                                                                                                                                                                                         |
+| Alerts            | One per alert preset, and Hide Alert                                                                                                                                                                                                                                    |
+| Music             | One per playlist, Play / Pause, Next, Stop                                                                                                                                                                                                                              |
+| Audio Mixer       | A strip per input, mix and output with name, level, meter and state, and a second set made for dials (**1.1** for mixes, outputs and live meters)                                                                                                                       |
+| Screens           | One per Output Preset, one per Confidence Monitor layout (**1.1**), Identify (**1.1**)                                                                                                                                                                                  |
+| Record and Stream | Record and Stream, each with the time it has been running (**1.1**)                                                                                                                                                                                                     |
+| Scheduler         | The Scheduler switch, and Run Now for each trigger                                                                                                                                                                                                                      |
+| System            | Lock, Pull Updates, Take Over                                                                                                                                                                                                                                           |
 
 The timer bar turns amber when the timer is in warning, and the whole button turns red when it is over. The Service Tracking timers are run by MxU Slides itself, so they have a display button only.
 
@@ -90,7 +90,7 @@ Two elements are offered for layered buttons, in the element list under this con
 - **Overlays and alerts**: Overlay: Show, Hide, Toggle, Alert: Show preset, Alert: Show text, Alert: Hide
 - **Timers**: Timer: Start, Pause, Reset, Timer: Set length or end time (**1.1**), Timer: Add or subtract time (**1.1**)
 - **Music**: Music: Play playlist, Music: Play item, Music: Play / Pause, Next, Previous, Seek, Stop
-- **Audio mixer**: Input: On Air, Input: Mute, Input: Set level, Input: Nudge level, and Mute, Set level and Nudge level for mixes and outputs (**1.1**)
+- **Audio mixer**: Input: On / Off, Input: Mute, Input: Set level, Input: Nudge level, and Mute, Set level and Nudge level for mixes and outputs (**1.1**)
 - **Screens**: Output Preset: Switch, Confidence Monitor: Set layout (**1.1**), Screens: Identify (**1.1**)
 - **Record and stream**: Recording: Start, Stop (**1.1**), Stream: Start, Stop (**1.1**)
 - **Automation and system**: Action Combo: Run, Scheduler: On / Off, Scheduler trigger: Pause, Resume, Run now, MIDI device: On / Off, Lock: On, Off, Pull Updates, Follow: Take Over, Hand Back
@@ -102,12 +102,12 @@ A timer can have time added or subtracted whether it is running or not. Before i
 ## Feedbacks
 
 - **Show**: Something is live (per clear target, per layer, or anything at all), Live presentation is, Live slide number is, Live section is (**1.1**), Overlay is live, Alert is showing, Service is (**1.1**)
-- **Media**: Video is playing, Music is playing, Video input is live (**1.1**), Timeline is playing
+- **Media**: Video is playing, Music is playing, Music is paused, Video input is live (**1.1**), Timeline is playing
 - **Timers**: Timer is running, paused, in warning or over
-- **Audio mixer**: Input is On Air, Input is muted, Mix is muted, Output is muted (**1.1** for outputs)
+- **Audio mixer**: Input is on, Input is muted, Mix is muted, Output is muted (**1.1** for outputs)
 - **Screens**: Output Preset is active, Confidence Monitor layout is
 - **Record and stream**: Recording, Streaming (**1.1**)
-- **System**: Lock is on, Updates are waiting, Scheduler is on, Scheduler trigger is enabled, MIDI device is on, This computer is in charge, MxU Slides is not responding
+- **System**: Lock is on, Updates are waiting, Scheduler is on, Scheduler trigger is enabled, MIDI device is on, This computer's role is, MxU Slides is not responding
 
 Value feedbacks, for texts, colors, pictures and gauges on layered buttons: Show: a value, Section: name or color, Slide picture (**1.1**), Video: a value, Timer: a value, Input / Mix / Output: a value, Input / Mix / Output: level meter (**1.1**), Recording or stream: time running (**1.1**).
 
@@ -117,7 +117,7 @@ Value feedbacks, for texts, colors, pictures and gauges on layered buttons: Show
 - **Each timer**, named after the timer (a timer called Sermon gives `timer_sermon`): the time as MxU Slides shows it, then `_hms` (h:mm:ss), `_ms` (m:ss), `_seconds`, `_state`, `_name`, `_length`. For a format of your own, use `_seconds` in an expression.
 - **Video**: `video_name`, `video_position`, `video_remaining`, `video_length`, `video_playing`, and the same for `video_foreground_…` and `video_background_…`
 - **Music**: `music_playlist`, `music_track`, `music_position`, `music_remaining`, `music_playing`
-- **Each input, mix and output**, named after the strip: `input_pastor_name`, `_db`, `_muted`, `_on_air` (inputs), `_meter`
+- **Each input, mix and output**, named after the strip: `input_pastor_name`, `_db`, `_muted`, `_on` (inputs), `_meter`
 - **Screens**: `output_preset`, and `confidence_<screen>_layout` for each Confidence Monitor
 - **Alert**: `alert_text`, `alert_target`
 - **Record and stream**: `recording`, `recording_time`, `streaming`, `streaming_time`

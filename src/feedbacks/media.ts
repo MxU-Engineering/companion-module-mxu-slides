@@ -51,8 +51,18 @@ export function mediaFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 		video_playing: {
 			type: 'boolean',
 			name: 'Video is playing',
+			description: 'True while a video is playing, on either layer or on one.',
 			defaultStyle: { bgcolor: FAMILY.media.bright, color: FAMILY.media.ink },
-			options: [{ id: 'target', type: 'dropdown', label: 'Video', choices: VIDEO_TARGETS, default: ANY }],
+			options: [
+				{
+					id: 'target',
+					type: 'dropdown',
+					label: 'Video',
+					choices: VIDEO_TARGETS,
+					default: ANY,
+					disableAutoExpression: true,
+				},
+			],
 			callback: ({ options }) => {
 				const target = text(options.target)
 				if (target === ANY || target === '') return state.transport.some((row) => row.playing)
@@ -62,6 +72,7 @@ export function mediaFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 		music_playing: {
 			type: 'boolean',
 			name: 'Music is playing',
+			description: 'True while music plays, or while one playlist plays.',
 			defaultStyle: { bgcolor: FAMILY.audio.bright, color: FAMILY.audio.ink },
 			options: [
 				{ id: 'playlist', type: 'dropdown', label: 'Playing', choices: playlists, default: ANY, allowCustom: true },
@@ -86,6 +97,7 @@ export function mediaFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 		video_input_live: {
 			type: 'boolean',
 			name: 'Video input is live',
+			description: 'True while this camera, NDI or Blackmagic input is on screen.',
 			defaultStyle: { bgcolor: FAMILY.media.bright, color: FAMILY.media.ink },
 			options: [
 				{
@@ -102,6 +114,7 @@ export function mediaFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 		timeline_playing: {
 			type: 'boolean',
 			name: 'Timeline is playing',
+			description: 'True while the MxU Slides timeline plays.',
 			defaultStyle: { bgcolor: FAMILY.media.bright, color: FAMILY.media.ink },
 			options: [],
 			callback: () => state.timecode?.timeline?.running === true,
@@ -111,8 +124,22 @@ export function mediaFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 			name: 'Video: a value',
 			description: 'Time left, position or progress of a playing video, counted every second.',
 			options: [
-				{ id: 'target', type: 'dropdown', label: 'Video', choices: VIDEO_TARGETS, default: ANY },
-				{ id: 'field', type: 'dropdown', label: 'Value', choices: VIDEO_FIELDS, default: 'remaining' },
+				{
+					id: 'target',
+					type: 'dropdown',
+					label: 'Video',
+					choices: VIDEO_TARGETS,
+					default: ANY,
+					disableAutoExpression: true,
+				},
+				{
+					id: 'field',
+					type: 'dropdown',
+					label: 'Value',
+					choices: VIDEO_FIELDS,
+					default: 'remaining',
+					disableAutoExpression: true,
+				},
 			],
 			callback: ({ options }) => videoValue(state, text(options.target), text(options.field), Date.now()),
 		},

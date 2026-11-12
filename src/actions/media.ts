@@ -1,6 +1,6 @@
 import type { CompanionActionDefinitions, DropdownChoice } from '@companion-module/base'
 import type { TransportRow } from '../api/types.js'
-import { Choices, text, type SlidesContext } from '../context.js'
+import { Choices, picked, text, type SlidesContext } from '../context.js'
 import type { SlidesState } from '../state.js'
 import { parseDuration, transportPosition } from '../time.js'
 
@@ -63,15 +63,25 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
-				const id = encodeURIComponent(text(options.media))
-				await ctx.run('Media: Play item', undefined, async (client) => client.post(`/v1/media/${id}/fire`))
+			callback: async ({ options }, { signal }) => {
+				const media = picked(ctx, 'Media: Play item', 'a media item', options.media)
+				if (!media) return
+				const id = encodeURIComponent(media)
+				await ctx.run('Media: Play item', undefined, signal, async (client) => client.post(`/v1/media/${id}/fire`))
 			},
 		},
 		video_transport: {
 			name: 'Video: Play, Pause, Restart, Seek',
+			description: 'Controls a video that is playing in MxU Slides.',
 			options: [
-				{ id: 'target', type: 'dropdown', label: 'Video', choices: VIDEO_TARGETS, default: 'any' },
+				{
+					id: 'target',
+					type: 'dropdown',
+					label: 'Video',
+					choices: VIDEO_TARGETS,
+					default: 'any',
+					disableAutoExpression: true,
+				},
 				{
 					id: 'action',
 					type: 'dropdown',
@@ -99,9 +109,9 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 						"$(options:action) == 'seek' || $(options:action) == 'skip' || $(options:action) == 'end'",
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
 				const name = 'Video: Play, Pause, Restart, Seek'
-				await ctx.run(name, undefined, async (client) => {
+				await ctx.run(name, undefined, signal, async (client) => {
 					const row = videoRow(ctx.state, text(options.target))
 					if (!row) throw new Error('no video is playing')
 					const action = text(options.action)
@@ -132,18 +142,24 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
-				const id = encodeURIComponent(text(options.input))
-				await ctx.run('Video Input: Go live', '1.1', async (client) => client.post(`/v1/inputs/video/${id}/fire`))
+			callback: async ({ options }, { signal }) => {
+				const input = picked(ctx, 'Video Input: Go live', 'a video input', options.input)
+				if (!input) return
+				const id = encodeURIComponent(input)
+				await ctx.run('Video Input: Go live', '1.1', signal, async (client) =>
+					client.post(`/v1/inputs/video/${id}/fire`),
+				)
 			},
 		},
 		timeline: {
 			name: 'Timeline: Play, Stop, Rewind',
+			description: 'Plays, stops or rewinds the MxU Slides timeline.',
 			options: [
 				{
 					id: 'action',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'play', label: 'Play' },
 						{ id: 'stop', label: 'Stop' },
@@ -152,14 +168,15 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					default: 'play',
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Timeline: Play, Stop, Rewind', '1.1', async (client) =>
+			callback: async ({ options }, { signal }) => {
+				await ctx.run('Timeline: Play, Stop, Rewind', '1.1', signal, async (client) =>
 					client.post('/v1/timeline', { action: text(options.action) }),
 				)
 			},
 		},
 		overlay: {
 			name: 'Overlay: Show, Hide, Toggle',
+			description: 'Shows or hides an overlay from the MxU Slides library.',
 			options: [
 				{
 					id: 'overlay',
@@ -173,6 +190,7 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					id: 'mode',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'toggle', label: 'Toggle' },
 						{ id: 'show', label: 'Show' },
@@ -181,19 +199,21 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					default: 'toggle',
 				},
 			],
-			callback: async ({ options }) => {
-				const overlay = text(options.overlay)
+			callback: async ({ options }, { signal }) => {
+				const overlay = picked(ctx, 'Overlay: Show, Hide, Toggle', 'an overlay', options.overlay)
+				if (!overlay) return
 				const live = ctx.state.show?.overlays.some((candidate) => candidate.id === overlay) ?? false
 				const mode = text(options.mode)
 				const show = mode === 'toggle' ? !live : mode === 'show'
 				const id = encodeURIComponent(overlay)
-				await ctx.run('Overlay: Show, Hide, Toggle', undefined, async (client) =>
+				await ctx.run('Overlay: Show, Hide, Toggle', undefined, signal, async (client) =>
 					client.post(`/v1/overlays/${id}/${show ? 'fire' : 'dismiss'}`),
 				)
 			},
 		},
 		alert_preset: {
 			name: 'Alert: Show preset',
+			description: 'Shows an alert preset from MxU Slides, with its blanks filled in.',
 			options: [
 				{
 					id: 'preset',
@@ -213,11 +233,13 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					useVariables: true,
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
+				const preset = picked(ctx, 'Alert: Show preset', 'an alert preset', options.preset)
+				if (!preset) return
 				const tokens = parseTokens(text(options.tokens))
-				await ctx.run('Alert: Show preset', undefined, async (client) =>
+				await ctx.run('Alert: Show preset', undefined, signal, async (client) =>
 					client.post('/v1/alerts/fire', {
-						presetId: text(options.preset),
+						presetId: preset,
 						...(Object.keys(tokens).length ? { tokens } : {}),
 					}),
 				)
@@ -225,12 +247,14 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 		},
 		alert_text: {
 			name: 'Alert: Show text',
+			description: 'Shows an alert with your own words.',
 			options: [
 				{ id: 'message', type: 'textinput', label: 'Message', default: '', useVariables: true },
 				{
 					id: 'target',
 					type: 'dropdown',
 					label: 'Show on',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'confidence', label: 'Confidence Monitor' },
 						{ id: 'audience', label: 'Audience' },
@@ -242,6 +266,7 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					id: 'behavior',
 					type: 'dropdown',
 					label: 'How',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'persist', label: 'Stay up until hidden' },
 						{ id: 'flash', label: 'Flash' },
@@ -249,8 +274,8 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 					default: 'persist',
 				},
 			],
-			callback: async ({ options }) => {
-				await ctx.run('Alert: Show text', undefined, async (client) => {
+			callback: async ({ options }, { signal }) => {
+				await ctx.run('Alert: Show text', undefined, signal, async (client) => {
 					const message = text(options.message)
 					if (!message.trim()) throw new Error('the message is empty')
 					await client.post('/v1/alerts/fire', {
@@ -263,9 +288,10 @@ export function mediaActions(ctx: SlidesContext, choices: Choices): CompanionAct
 		},
 		alert_hide: {
 			name: 'Alert: Hide',
+			description: 'Takes the alert off the screen.',
 			options: [],
-			callback: async () => {
-				await ctx.run('Alert: Hide', undefined, async (client) => client.post('/v1/alerts/dismiss'))
+			callback: async (_action, { signal }) => {
+				await ctx.run('Alert: Hide', undefined, signal, async (client) => client.post('/v1/alerts/dismiss'))
 			},
 		},
 	}

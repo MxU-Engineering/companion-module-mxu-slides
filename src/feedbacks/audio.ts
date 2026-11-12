@@ -103,6 +103,7 @@ export function audioFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 	): CompanionFeedbackDefinitions<{ a: { type: 'boolean'; options: StripOptions } }>['a'] => ({
 		type: 'boolean',
 		name: `${KIND_LABEL[kind]} is muted`,
+		description: `True while this ${KIND_LABEL[kind].toLowerCase()} is muted, or while every one is.`,
 		defaultStyle: { bgcolor: FAMILY.clear.bright, color: FAMILY.clear.ink },
 		options: [stripOption(kind, true)],
 		callback: ({ options }) => {
@@ -121,7 +122,14 @@ export function audioFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 		description: 'The level, state or name of a mixer strip.',
 		options: [
 			stripOption(kind),
-			{ id: 'field', type: 'dropdown', label: 'Value', choices: VALUE_FIELDS, default: 'db' },
+			{
+				id: 'field',
+				type: 'dropdown',
+				label: 'Value',
+				choices: VALUE_FIELDS,
+				default: 'db',
+				disableAutoExpression: true,
+			},
 		],
 		callback: ({ options }) => stripValue(state, kind, text(options.strip), text(options.field)),
 	})
@@ -134,7 +142,14 @@ export function audioFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 		description: 'The live level in dB, from -60 to 0, about ten times a second. Feeds a gauge element.',
 		options: [
 			stripOption(kind),
-			{ id: 'channel', type: 'dropdown', label: 'Channel', choices: CHANNELS, default: 'max' },
+			{
+				id: 'channel',
+				type: 'dropdown',
+				label: 'Channel',
+				choices: CHANNELS,
+				default: 'max',
+				disableAutoExpression: true,
+			},
 		],
 		callback: ({ options }) => meterValue(state, kind, text(options.strip), text(options.channel)),
 	})

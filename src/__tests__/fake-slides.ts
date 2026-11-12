@@ -40,7 +40,8 @@ export interface FakeOptions {
 	key?: string
 	scope?: 'view' | 'control' | 'edit'
 	port?: number
-	product?: string
+	/** What the ping says it is; `null` answers the ping with JSON `null`. */
+	product?: string | null
 }
 
 export interface FakeRequest {
@@ -268,7 +269,7 @@ export class FakeSlides {
 			key: options.key ?? 'mxu_fake_key',
 			scope: options.scope ?? 'control',
 			port: options.port ?? 0,
-			product: options.product ?? 'MxU Slides',
+			product: options.product === undefined ? 'MxU Slides' : options.product,
 		}
 		const now = Date.now()
 		this.timers = [
@@ -1045,12 +1046,17 @@ export class FakeSlides {
 		}
 		const url = new URL(request.url ?? '/', 'http://fake')
 		if (url.pathname === '/v1/ping') {
-			send(200, {
-				name: 'Fake Booth Mac',
-				product: this.options.product,
-				apiVersion: this.options.apiVersion,
-				schemaVersion: 130,
-			})
+			send(
+				200,
+				this.options.product === null
+					? null
+					: {
+							name: 'Fake Booth Mac',
+							product: this.options.product,
+							apiVersion: this.options.apiVersion,
+							schemaVersion: 130,
+						},
+			)
 			return
 		}
 		if (!this.#authorised(request)) {

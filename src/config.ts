@@ -35,7 +35,7 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			label: 'Before you connect',
 			width: 12,
 			value:
-				'In MxU Slides, open Settings › Network & API and turn on Serve the API. Connect at shows the address and port to use here, and Default key the key. The help for this connection has pictures of each step.',
+				'In MxU Slides, open Settings › Network & API and turn on Serve the API. Connect at shows the address and port to use here, and Default key shows the API key. The help for this connection has pictures of each step.',
 		},
 		{
 			type: 'bonjour-device',

@@ -88,6 +88,11 @@ describe('connecting', () => {
 		await until(() => statuses.includes('wrong-product'), 'wrong product')
 	})
 
+	it('refuses a ping that answers null, without throwing', async () => {
+		const { statuses } = await session({ product: null })
+		await until(() => statuses.includes('wrong-product'), 'wrong product')
+	})
+
 	it('comes back by itself when Slides returns', async () => {
 		const { fake, ready, statuses } = await session()
 		await until(() => ready.length === 1, 'ready')
@@ -147,6 +152,19 @@ describe('commands', () => {
 		await until(() => ready.length === 1, 'ready')
 		fake.silence(true)
 		await assert.rejects(client.command('GET', '/v1/status'), /did not answer in time/)
+	})
+
+	it('stops waiting for a command the moment its action is aborted', async () => {
+		const { client, fake, ready } = await session()
+		await until(() => ready.length === 1, 'ready')
+		fake.silence(true)
+		const abort = new AbortController()
+		const started = Date.now()
+		const waiting = client.post('/v1/show/clear-all', {}, abort.signal)
+		abort.abort()
+		await assert.rejects(waiting, { name: 'AbortError' })
+		assert.ok(Date.now() - started < TIMING.requestTimeout / 2, 'it did not wait for the timeout')
+		await assert.rejects(client.post('/v1/show/clear-all', {}, abort.signal), { name: 'AbortError' })
 	})
 
 	it('fails the commands still waiting when the socket drops', async () => {

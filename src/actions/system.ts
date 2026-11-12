@@ -1,6 +1,6 @@
 import type { CompanionActionDefinitions } from '@companion-module/base'
 import type { LockStatus, MidiDeviceStatus } from '../api/types.js'
-import { Choices, ON_OFF_TOGGLE, resolveToggle, text, type SlidesContext } from '../context.js'
+import { Choices, ON_OFF_TOGGLE, picked, resolveToggle, text, type SlidesContext } from '../context.js'
 
 type CaptureOptions = { mode: string; preset: string }
 
@@ -48,6 +48,7 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 		label: string,
 	): CompanionActionDefinitions<{ a: { options: CaptureOptions } }>['a'] => ({
 		name: `${label}: Start, Stop`,
+		description: `Starts or stops the ${side === 'recording' ? 'recording' : 'stream'} in MxU Slides.`,
 		options: [
 			{
 				id: 'mode',
@@ -67,11 +68,11 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 				isVisibleExpression: "$(options:mode) != 'stop'",
 			},
 		],
-		callback: async ({ options }) => {
+		callback: async ({ options }, { signal }) => {
 			const mode = text(options.mode)
 			const preset = text(options.preset)
 			const body = mode !== 'stop' && preset && preset !== DEFAULT_PRESET ? { presetId: preset } : {}
-			await ctx.run(`${label}: Start, Stop`, '1.1', async (client) =>
+			await ctx.run(`${label}: Start, Stop`, '1.1', signal, async (client) =>
 				client.post(`/v1/capture/${side}/${mode === 'start' || mode === 'stop' ? mode : 'toggle'}`, body),
 			)
 		},
@@ -80,6 +81,7 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 	return {
 		output_preset: {
 			name: 'Output Preset: Switch',
+			description: 'Switches the screens to an Output Preset, or to none.',
 			options: [
 				{
 					id: 'preset',
@@ -90,15 +92,16 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
 				const id = encodeURIComponent(text(options.preset) || NO_PRESET)
-				await ctx.run('Output Preset: Switch', undefined, async (client) =>
+				await ctx.run('Output Preset: Switch', undefined, signal, async (client) =>
 					client.post(`/v1/output-presets/${id}/activate`),
 				)
 			},
 		},
 		confidence_layout: {
 			name: 'Confidence Monitor: Set layout',
+			description: 'Shows a layout on a Confidence Monitor.',
 			options: [
 				{
 					id: 'screen',
@@ -117,10 +120,12 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
 				const layout = text(options.layout)
-				const screen = encodeURIComponent(text(options.screen))
-				await ctx.run('Confidence Monitor: Set layout', '1.1', async (client) =>
+				const chosen = picked(ctx, 'Confidence Monitor: Set layout', 'a Confidence Monitor', options.screen)
+				if (!chosen) return
+				const screen = encodeURIComponent(chosen)
+				await ctx.run('Confidence Monitor: Set layout', '1.1', signal, async (client) =>
 					client.post(`/v1/confidence/screens/${screen}/layout`, {
 						layoutId: layout === BUILT_IN_LAYOUT || layout === '' ? null : layout,
 					}),
@@ -131,14 +136,15 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 			name: 'Screens: Identify',
 			description: 'Flashes each screen with its name.',
 			options: [],
-			callback: async () => {
-				await ctx.run('Screens: Identify', '1.1', async (client) => client.post('/v1/outputs/identify'))
+			callback: async (_action, { signal }) => {
+				await ctx.run('Screens: Identify', '1.1', signal, async (client) => client.post('/v1/outputs/identify'))
 			},
 		},
 		recording: capture('recording', 'Recording'),
 		streaming: capture('streaming', 'Stream'),
 		combo_run: {
 			name: 'Action Combo: Run',
+			description: 'Runs an Action Combo from MxU Slides.',
 			options: [
 				{
 					id: 'combo',
@@ -149,23 +155,38 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					allowCustom: true,
 				},
 			],
-			callback: async ({ options }) => {
-				const id = encodeURIComponent(text(options.combo))
-				await ctx.run('Action Combo: Run', undefined, async (client) => client.post(`/v1/action-combos/${id}/fire`))
+			callback: async ({ options }, { signal }) => {
+				const combo = picked(ctx, 'Action Combo: Run', 'an Action Combo', options.combo)
+				if (!combo) return
+				const id = encodeURIComponent(combo)
+				await ctx.run('Action Combo: Run', undefined, signal, async (client) =>
+					client.post(`/v1/action-combos/${id}/fire`),
+				)
 			},
 		},
 		scheduler: {
 			name: 'Scheduler: On / Off',
-			options: [{ id: 'mode', type: 'dropdown', label: 'Scheduler', choices: ON_OFF_TOGGLE, default: 'toggle' }],
-			callback: async ({ options }) => {
+			description: 'Turns the MxU Slides Scheduler on or off.',
+			options: [
+				{
+					id: 'mode',
+					type: 'dropdown',
+					label: 'Scheduler',
+					choices: ON_OFF_TOGGLE,
+					default: 'toggle',
+					disableAutoExpression: true,
+				},
+			],
+			callback: async ({ options }, { signal }) => {
 				const enabled = resolveToggle(options.mode, !!ctx.state.scheduler?.enabled)
-				await ctx.run('Scheduler: On / Off', undefined, async (client) =>
+				await ctx.run('Scheduler: On / Off', undefined, signal, async (client) =>
 					client.post('/v1/scheduler/enabled', { enabled }),
 				)
 			},
 		},
 		scheduler_trigger: {
 			name: 'Scheduler trigger: Pause, Resume, Run now',
+			description: 'Runs one Scheduler trigger now, or pauses or resumes it.',
 			options: [
 				{
 					id: 'trigger',
@@ -179,6 +200,7 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					id: 'action',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'run', label: 'Run now' },
 						{ id: 'toggle', label: 'Pause / Resume' },
@@ -188,11 +210,12 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					default: 'run',
 				},
 			],
-			callback: async ({ options }) => {
-				const trigger = text(options.trigger)
+			callback: async ({ options }, { signal }) => {
+				const trigger = picked(ctx, 'Scheduler trigger: Pause, Resume, Run now', 'a trigger', options.trigger)
+				if (!trigger) return
 				const action = text(options.action)
 				const path = `/v1/scheduler/triggers/${encodeURIComponent(trigger)}`
-				await ctx.run('Scheduler trigger: Pause, Resume, Run now', undefined, async (client) => {
+				await ctx.run('Scheduler trigger: Pause, Resume, Run now', undefined, signal, async (client) => {
 					if (action === 'run') {
 						await client.post(`${path}/fire`)
 						return
@@ -205,6 +228,7 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 		},
 		midi_device: {
 			name: 'MIDI device: On / Off',
+			description: 'Turns a MIDI device in MxU Slides on or off.',
 			options: [
 				{
 					id: 'device',
@@ -214,13 +238,22 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					default: Choices.first(midi),
 					allowCustom: true,
 				},
-				{ id: 'mode', type: 'dropdown', label: 'Device', choices: ON_OFF_TOGGLE, default: 'toggle' },
+				{
+					id: 'mode',
+					type: 'dropdown',
+					label: 'Switch',
+					choices: ON_OFF_TOGGLE,
+					default: 'toggle',
+					disableAutoExpression: true,
+				},
 			],
-			callback: async ({ options }) => {
-				const device = text(options.device)
-				await ctx.run('MIDI device: On / Off', undefined, async (client) => {
+			callback: async ({ options }, { signal }) => {
+				const device = picked(ctx, 'MIDI device: On / Off', 'a MIDI device', options.device)
+				if (!device) return
+				await ctx.run('MIDI device: On / Off', undefined, signal, async (client) => {
 					// Slides does not push its MIDI devices, so a toggle asks for the state it is toggling.
 					const devices = await client.get<MidiDeviceStatus[]>('/v1/midi/devices')
+					if (signal.aborted) return
 					const current = !!devices.find((candidate) => candidate.id === device)?.enabled
 					const enabled = resolveToggle(options.mode, current)
 					await client.post(`/v1/midi/devices/${encodeURIComponent(device)}/enabled`, { enabled })
@@ -236,6 +269,7 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					id: 'action',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'toggle', label: 'Lock on / off' },
 						{ id: 'on', label: 'Lock on' },
@@ -245,13 +279,14 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					default: 'toggle',
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
 				const action = text(options.action)
-				await ctx.run('Lock: On, Off, Pull Updates', undefined, async (client) => {
+				await ctx.run('Lock: On, Off, Pull Updates', undefined, signal, async (client) => {
 					let body: object = { pullUpdates: true }
 					if (action !== 'pull') {
 						// The Lock also turns itself on and off with the service, without a push: read it first.
 						const current = action === 'toggle' ? (await client.get<LockStatus>('/v1/show/lock')).locked : false
+						if (signal.aborted) return
 						body = { locked: resolveToggle(action, current) }
 					}
 					await client.post('/v1/show/lock', body)
@@ -267,6 +302,7 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					id: 'action',
 					type: 'dropdown',
 					label: 'Do',
+					disableAutoExpression: true,
 					choices: [
 						{ id: 'takeover', label: 'Take Over (on the backup)' },
 						{ id: 'handback', label: 'Hand Back (on the backup)' },
@@ -275,10 +311,10 @@ export function systemActions(ctx: SlidesContext, choices: Choices): CompanionAc
 					default: 'takeover',
 				},
 			],
-			callback: async ({ options }) => {
+			callback: async ({ options }, { signal }) => {
 				const action = text(options.action)
 				const path = action === 'handback' || action === 'takeback' ? action : 'takeover'
-				await ctx.run('Follow: Take Over, Hand Back', undefined, async (client) => {
+				await ctx.run('Follow: Take Over, Hand Back', undefined, signal, async (client) => {
 					await client.post(`/v1/follow/${path}`)
 					ctx.refresh('follow')
 				})
