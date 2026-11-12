@@ -249,7 +249,7 @@ describe('updates', () => {
 describe('actions on today’s routes', () => {
 	it('moves through slides', async () => {
 		const { fake, press, feedback, host } = await connect({ apiVersion: '1.0' })
-		// An older Slides sends no sections: the Now tile falls back to the presentation's name.
+		// An older Slides sends no sections: the Current tile falls back to the presentation's name.
 		assert.equal(await feedback('show_value', { field: 'label' }), 'Goodness of God')
 		assert.equal(await feedback('show_value', { field: 'next_label' }), '')
 		assert.equal(await feedback('slide_picture', { which: 'live' }), null)
@@ -359,6 +359,14 @@ describe('actions on today’s routes', () => {
 		assert.equal(fake.commands().at(-1), 'POST /v1/timers/timer-sermon/pause')
 		assert.equal(await state('paused'), true)
 		assert.equal(await state('running'), false)
+		// Paused after running over (its warning colors on): still paused, not running.
+		fake.timers = fake.timers.map((t) =>
+			t.id === 'timer-sermon' ? { ...t, durationSeconds: 1, bankedSeconds: 30 } : t,
+		)
+		fake.push('timers')
+		await new Promise((done) => setTimeout(done, 150))
+		assert.equal(await state('running'), false)
+		assert.equal(await state('paused'), true)
 		await press('timer', { timer: 'timer-sermon', action: 'reset' })
 		assert.equal(await state('idle'), true)
 		assert.equal(await feedback('timer_value', { timer: 'timer-sermon', field: 'time' }), '35:00')
@@ -381,12 +389,17 @@ describe('actions on today’s routes', () => {
 		assert.deepEqual(fake.lastBody('/v1/audio/transport'), { action: 'next' })
 		await press('music_transport', { action: 'seek', position: '1:05' })
 		assert.deepEqual(fake.lastBody('/v1/audio/transport'), { action: 'seek', position: 65 })
+		assert.equal(await feedback('music_paused', {}), false)
 		await press('music_transport', { action: 'playPause', position: '0' })
 		assert.equal(await feedback('music_playing', { playlist: 'any' }), false)
+		// Paused: still loaded, so Play shows amber and Stop stays red.
+		assert.equal(await feedback('music_paused', {}), true)
+		assert.equal(await feedback('live', { target: 'audio' }), true)
 		await press('music_item', { item: 'audio-sting' })
 		assert.equal(fake.commands().at(-1), 'POST /v1/audio/items/audio-sting/fire')
 		await press('music_transport', { action: 'stop', position: '0' })
 		assert.equal(fake.commands().at(-1), 'POST /v1/audio/stop')
+		assert.equal(await feedback('music_paused', {}), false)
 		assert.equal(await feedback('live', { target: 'audio' }), false)
 	})
 
@@ -598,6 +611,7 @@ describe('actions that need a newer MxU Slides', () => {
 		const { feedback } = await connect()
 		assert.equal(await feedback('show_value', { field: 'position' }), '3 / 14')
 		assert.equal(await feedback('show_value', { field: 'next_position' }), '4 / 14')
+		assert.equal(await feedback('show_value', { field: 'slides_left' }), 11)
 		assert.equal(await feedback('show_value', { field: 'section' }), 'Chorus')
 		assert.equal(await feedback('show_value', { field: 'label' }), 'Chorus')
 		assert.equal(await feedback('show_value', { field: 'next_label' }), 'Chorus')
@@ -741,7 +755,7 @@ describe('what is defined', () => {
 	it('defines every action, feedback and both composite elements', async () => {
 		const { host } = await connect()
 		assert.equal(Object.keys(host.actions ?? {}).length, 45)
-		assert.equal(Object.keys(host.feedbacks ?? {}).length, 39)
+		assert.equal(Object.keys(host.feedbacks ?? {}).length, 40)
 		assert.deepEqual(host.composites, ['channel_strip', 'stereo_meter'])
 		for (const [id, definition] of Object.entries({ ...host.actions, ...host.feedbacks })) {
 			assert.ok(definition && definition.name.length > 0, `${id} has a name`)

@@ -16,7 +16,7 @@ export const FAMILY = {
 	output: { bright: 0x7d7aff, ink: 0xffffff },
 	conf: { bright: 0xff9f0a, ink: 0x241500 },
 	rec: { bright: 0xff375f, ink: 0xffffff },
-	system: { bright: 0x8e8e93, ink: 0xffffff },
+	system: { bright: 0xe5e5ea, ink: 0x1c1c1e },
 } satisfies Record<string, Family>
 
 export type FamilyName = keyof typeof FAMILY
@@ -24,6 +24,9 @@ export type FamilyName = keyof typeof FAMILY
 export const TILE = 0x1f1f1e
 export const TILE_EDGE = 0x2e2e2d
 export const WHITE = 0xf5f5f4
+/** Transport keys mean the same everywhere: green while running, plain white Resume while paused, red stop. */
+export const TRANSPORT = { running: 0x30d158, paused: WHITE, stop: 0xff453a }
+
 export const DIM = 0xa3a3a0
 export const BLACK = 0x000000
 /** A quiet track on the dark tile, for bars and meters. */

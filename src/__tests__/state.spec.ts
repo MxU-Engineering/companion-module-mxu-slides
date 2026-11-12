@@ -256,7 +256,7 @@ describe('variables', () => {
 		assert.equal(values.timer_sermon_seconds, 300)
 		assert.equal(values.timer_sermon_state, 'idle')
 		assert.equal(values.input_pastor_db, '-6.0')
-		assert.equal(values.input_pastor_on_air, true)
+		assert.equal(values.input_pastor_on, true)
 		assert.equal(values.mix_stream_muted, true)
 		assert.equal(values.output_main_name, 'Main')
 		assert.equal(values.confidence_stage_layout, 'Built-in Layout')

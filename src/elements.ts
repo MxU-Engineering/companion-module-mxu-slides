@@ -99,7 +99,7 @@ export function GetCompositeElements(): CompanionGraphicsCompositeElementDefinit
 		channel_strip: {
 			type: 'composite',
 			name: 'Mixer channel strip',
-			description: 'A meter, a fader, the name, the level and an ON AIR / MUTED / OFF pill.',
+			description: 'A meter, a fader, the name, the level and an ON / MUTED / OFF pill.',
 			options: [
 				{ type: 'textinput', id: 'name', label: 'Name', default: 'Pastor' },
 				{ type: 'textinput', id: 'level', label: 'Level text', default: '-6.0', tooltip: 'Shown under the name.' },
@@ -116,7 +116,7 @@ export function GetCompositeElements(): CompanionGraphicsCompositeElementDefinit
 					default: 'on',
 					allowCustom: true,
 				},
-				{ type: 'textinput', id: 'onLabel', label: 'Pill text when on', default: 'ON AIR' },
+				{ type: 'textinput', id: 'onLabel', label: 'Pill text when on', default: 'ON' },
 				{ type: 'checkbox', id: 'stereo', label: 'Two meter bars', default: false },
 				{
 					type: 'number',

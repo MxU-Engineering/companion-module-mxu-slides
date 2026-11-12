@@ -84,7 +84,7 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			id: 'pictures',
 			label: 'Slide pictures',
 			description:
-				'Pictures of the live and the next slide on the Now and Next buttons. Needs MxU Slides with API 1.1 or newer.',
+				'Pictures of the live and the next slide on the Current and Next buttons. Needs MxU Slides with API 1.1 or newer.',
 			width: 6,
 			default: true,
 		},

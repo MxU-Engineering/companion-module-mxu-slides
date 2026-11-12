@@ -142,7 +142,7 @@ export function audioFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 	return {
 		input_on_air: {
 			type: 'boolean',
-			name: 'Input is On Air',
+			name: 'Input is on',
 			description: 'True while the input is heard through the mixer.',
 			defaultStyle: { bgcolor: FAMILY.timer.bright, color: FAMILY.timer.ink },
 			options: [stripOption('input')],

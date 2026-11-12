@@ -45,7 +45,7 @@ function capture(side: 'recording' | 'streaming'): Preset {
 		: { feedbackId: 'streaming' as const, options: {} }
 	const elements = [
 		tileBase(),
-		glyph('glyph', `${icon}.rec`),
+		glyph('glyph', `${icon}.rest`),
 		glyph('glyphLit', `${icon}.rec.small.ink`, false),
 		caption(name, WHITE),
 		label('time', expression(local('time')), 4, 35.5, 64, 17, rec.ink, { size: 96, enabled: false }),
@@ -84,7 +84,7 @@ function pullUpdates(): Preset {
 			'Lock: Pull Updates',
 			[
 				tileBase(),
-				glyph('glyph', 'refresh-cw.conf.dim'),
+				glyph('glyph', 'refresh-cw.rest'),
 				glyph('glyphLit', 'refresh-cw.conf', false),
 				caption('Pull\nUpdates', DIM),
 			],

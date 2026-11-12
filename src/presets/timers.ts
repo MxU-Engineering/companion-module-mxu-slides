@@ -1,7 +1,7 @@
 import type { CompanionPresetSection } from '@companion-module/base'
 import type { ModuleSchema } from '../main.js'
 import type { SlidesState } from '../state.js'
-import { DIM, FAMILY, TILE, TRACK, WHITE } from '../style.js'
+import { DIM, FAMILY, TRACK, TRANSPORT, WHITE } from '../style.js'
 import { timerVariable } from '../variables.js'
 import {
 	alternatives,
@@ -89,12 +89,24 @@ function display(timer: string, variable: string, controllable: boolean): Preset
 function startPause(timer: string): Preset {
 	const steps = press({ actionId: 'timer', options: { timer, action: 'toggle' } })
 	const running = { feedbackId: 'timer_state' as const, options: { timer, state: 'running' } }
+	const paused = { feedbackId: 'timer_state' as const, options: { timer, state: 'paused' } }
 	return alternatives(
 		layered(
 			'Timer: Start / Pause',
-			[tileBase(), glyph('glyph', 'play.timer'), glyph('glyphLit', 'pause.timer', false), caption('Start', WHITE)],
+			[
+				tileBase(),
+				glyph('glyph', 'play.rest'),
+				glyph('glyphPaused', 'play.action', false),
+				glyph('glyphLit', 'pause.running', false),
+				caption('Start', WHITE),
+			],
 			steps,
 			[
+				when(paused, [
+					set('glyph', 'enabled', false),
+					set('glyphPaused', 'enabled', true),
+					set('caption', 'text', 'Resume'),
+				]),
 				when(running, [
 					set('glyph', 'enabled', false),
 					set('glyphLit', 'enabled', true),
@@ -103,7 +115,8 @@ function startPause(timer: string): Preset {
 			],
 		),
 		simple('Timer: Start / Pause', 'Start', steps, [
-			whenSimple(running, { text: 'Pause', color: FAMILY.timer.bright }),
+			whenSimple(paused, { text: 'Resume', color: TRANSPORT.paused }),
+			whenSimple(running, { text: 'Pause', color: TRANSPORT.running }),
 		]),
 	)
 }
@@ -120,7 +133,7 @@ function adjust(timer: string, add: boolean, amount: string, text: string): Pres
 			name,
 			[
 				tileBase(),
-				glyph('glyph', add ? 'plus.timer' : 'minus.timer'),
+				glyph('glyph', add ? 'plus.action' : 'minus.action'),
 				label('amount', text, 4, 37.5, 64, 17, WHITE, { size: text.length <= 3 ? 100 : 88 }),
 				label('timer', expression(local('name')), 4, 56, 64, 11.5, DIM, { size: 84, weight: 'normal' }),
 			],
@@ -128,7 +141,7 @@ function adjust(timer: string, add: boolean, amount: string, text: string): Pres
 			[],
 			[localValue('name', 'timer_value', { timer, field: 'name' })],
 		),
-		simple(name, `${add ? '+' : '-'} ${text}`, steps, [], { color: FAMILY.timer.bright, bgcolor: TILE }),
+		simple(name, `${add ? '+' : '-'} ${text}`, steps),
 	)
 }
 

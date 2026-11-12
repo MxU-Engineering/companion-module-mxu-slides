@@ -266,7 +266,7 @@ export interface VideoInputStatus {
 export interface AudioInputStatus {
 	id: string
 	name: string
-	/** On air through the mixer right now. */
+	/** Switched on and heard through the mixer right now. */
 	live: boolean
 	/** The operator's own on-air switch. */
 	enabled: boolean

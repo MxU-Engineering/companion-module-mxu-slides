@@ -64,7 +64,7 @@ export interface MixerStrip {
 	gain: number
 	gainDb?: number
 	muted: boolean
-	/** Inputs only: on air through the mixer right now. */
+	/** Inputs only: switched on and heard through the mixer right now. */
 	live?: boolean
 	/** Inputs only: the operator's own on-air switch. */
 	enabled?: boolean

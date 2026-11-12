@@ -255,8 +255,8 @@ export interface TileSpec {
 	lit?: Lit
 	/** The family whose color fills the tile while lit, when it is not the tile's own. */
 	litFamily?: FamilyName
-	/** `fill`: filled while lit. `always`: always filled. `plain`: never filled. */
-	look?: 'fill' | 'always' | 'plain'
+	/** `fill`: filled while lit. `plain`: never filled. */
+	look?: 'fill' | 'plain'
 }
 
 /**
@@ -267,15 +267,16 @@ export function tile(spec: TileSpec): Preset {
 	const litName = spec.litFamily ?? spec.family
 	const lit = FAMILY[litName]
 	const look = spec.look ?? (spec.lit ? 'fill' : 'plain')
-	const filled = look === 'always'
 	const plainText = spec.plainLabel ?? (typeof spec.label === 'string' ? spec.label : spec.name)
 
-	// A tile carries only the glyphs it can show: the family-colored one while dark, the ink one while filled.
+	// Something that turns on is grey while off and filled while on. An action you can press any
+	// time is plain white: not grey (Cody: "shouldn't be greyed out") and not colored (he reads
+	// color as on).
 	const elements: Element[] = [
-		tileBase(filled ? lit.bright : TILE, filled ? lit.bright : TILE_EDGE),
-		...(filled ? [] : [glyph('glyph', `${spec.icon}.${spec.family}`)]),
-		...(look === 'plain' ? [] : [glyph('glyphLit', `${spec.icon}.${litName}.ink`, filled)]),
-		caption(spec.label, filled ? lit.ink : WHITE),
+		tileBase(),
+		glyph('glyph', look === 'plain' ? `${spec.icon}.action` : `${spec.icon}.rest`),
+		...(look === 'plain' ? [] : [glyph('glyphLit', `${spec.icon}.${litName}.ink`, false)]),
+		caption(spec.label, WHITE),
 	]
 	const feedbacks: LayeredFeedback[] = []
 	const plainFeedbacks: SimpleFeedback[] = []
@@ -293,6 +294,6 @@ export function tile(spec: TileSpec): Preset {
 	}
 	return alternatives(
 		layered(spec.name, elements, spec.steps, feedbacks),
-		simple(spec.name, plainText, spec.steps, plainFeedbacks, filled ? { bgcolor: lit.bright, color: lit.ink } : {}),
+		simple(spec.name, plainText, spec.steps, plainFeedbacks),
 	)
 }

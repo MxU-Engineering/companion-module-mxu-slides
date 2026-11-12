@@ -1,7 +1,7 @@
 import type { CompanionPresetSection } from '@companion-module/base'
 import type { ModuleSchema } from '../main.js'
 import type { SlidesState } from '../state.js'
-import { DIM, dimmed, FAMILY, hexColor, inkOn, WHITE } from '../style.js'
+import { DIM, dimmed, FAMILY, hexColor, inkOn, TILE, TILE_EDGE, WHITE } from '../style.js'
 import { SECTION_SLOTS } from '../variables.js'
 import {
 	alternatives,
@@ -22,7 +22,11 @@ import {
 	tileBase,
 	when,
 	whenSimple,
+	type Element,
+	type Expression,
+	type LocalVariable,
 	type Preset,
+	type Steps,
 } from './kit.js'
 
 type Presets = Record<string, Preset>
@@ -55,45 +59,33 @@ const COMBO_GLYPHS: Record<string, string> = {
 	light: 'lightbulb',
 }
 
-/** A filled arrow key: Previous and Next are the two buttons that are always lit. */
+/** Previous and Next: a white arrow, like every key you can press any time. */
 function nav(direction: 'next' | 'previous'): Preset {
 	const next = direction === 'next'
 	const name = next ? 'Next' : 'Previous'
 	const steps = press(
 		next ? { actionId: 'slide_next', options: { skipBuilds: false } } : { actionId: 'slide_previous', options: {} },
 	)
-	const go = FAMILY.go
 	return alternatives(
 		layered(
 			`Slide: ${name}`,
-			[
-				tileBase(go.bright, go.bright),
-				glyph('glyph', `arrow-${next ? 'right' : 'left'}.go.ink`),
-				caption(name, go.ink),
-			],
+			[tileBase(), glyph('glyph', `arrow-${next ? 'right' : 'left'}.action`), caption(name, WHITE)],
 			steps,
 		),
-		simple(`Slide: ${name}`, name, steps, [], { bgcolor: go.bright, color: go.ink }),
+		simple(`Slide: ${name}`, name, steps),
 	)
 }
 
-/** Now and Next: the slide picture, its number, and its section in the section's own color. */
-function thumb(which: 'live' | 'next'): Preset {
-	const live = which === 'live'
-	const name = live ? 'Now' : 'Next'
-	const steps = live ? press() : press({ actionId: 'slide_next', options: { skipBuilds: false } })
-	const ring = live ? FAMILY.clear.bright : 0x55554f
+/** The slide picture in a ring (red for the current slide), over the slide's words for when MxU Slides sends no picture. */
+function picture(live: boolean, x: number, y: number, width: number, height: number): Element[] {
 	const frame = live ? 2 : 1
-	const hasLabel = expression(`${local('label')} != ''`)
-	const elements = [
-		tileBase(),
-		box('ring', 4, 5, 64, 37, ring, { radius: 3, name: 'Picture ring' }),
-		box('pictureBack', 4 + frame, 5 + frame, 64 - frame * 2, 37 - frame * 2, 0x0c1220, {
+	return [
+		box('ring', x, y, width, height, upColor(live, FAMILY.clear.bright, 0x55554f), { radius: 3, name: 'Picture ring' }),
+		box('pictureBack', x + frame, y + frame, width - frame * 2, height - frame * 2, 0x0c1220, {
 			radius: 2,
 			name: 'Picture back',
 		}),
-		// Under the picture: the slide's words, which is what shows when MxU Slides sends no picture.
-		label('words', expression(local('words')), 8, 9, 56, 29, 0xd6d6d2, {
+		label('words', expression(local('words')), x + 4, y + 4, width - 8, height - 8, 0xd6d6d2, {
 			size: 27,
 			weight: 'normal',
 			name: 'Slide text',
@@ -102,32 +94,130 @@ function thumb(which: 'live' | 'next'): Preset {
 			type: 'image' as const,
 			id: 'picture',
 			name: 'Slide picture',
-			x: pct(4 + frame),
-			y: pct(5 + frame),
-			width: pct(64 - frame * 2),
-			height: pct(37 - frame * 2),
+			x: pct(x + frame),
+			y: pct(y + frame),
+			width: pct(width - frame * 2),
+			height: pct(height - frame * 2),
 			base64Image: expression(local('picture')),
 			fillMode: 'fit' as const,
 			halign: 'center' as const,
 			valign: 'center' as const,
 		},
-		label('kind', name.toUpperCase(), 5, 45.5, 28, 9.5, live ? FAMILY.clear.bright : DIM, { halign: 'left', size: 92 }),
-		label('position', expression(local('position')), 30, 45.5, 37, 9.5, WHITE, { halign: 'right', size: 100 }),
+	]
+}
+
+/** Red for the current slide only while one is up; grey otherwise (color means something is on). */
+function upColor(live: boolean, on: number, off: number): number | Expression {
+	return live ? expression(`${local('up')} != '' ? ${on} : ${off}`) : off
+}
+
+function pictureValues(live: boolean): LocalVariable[] {
+	return [
+		localValue('up', 'show_value', { field: live ? 'position' : 'next_position' }),
+		localValue('picture', 'slide_picture', { which: live ? 'live' : 'next' }),
+		localValue('words', 'show_value', { field: live ? 'text' : 'next_text' }),
+	]
+}
+
+/** The current slide does nothing on a press; the next one goes there. */
+function slideSteps(live: boolean): Steps {
+	return live ? press() : press({ actionId: 'slide_next', options: { skipBuilds: false } })
+}
+
+/** Current and Next: the slide picture, its number, and its section in the section's own color. */
+function thumb(which: 'live' | 'next'): Preset {
+	const live = which === 'live'
+	const name = live ? 'Current' : 'Next'
+	const steps = slideSteps(live)
+	const hasLabel = expression(`${local('label')} != ''`)
+	const elements = [
+		tileBase(),
+		...picture(live, 4, 5, 64, 37),
+		label('kind', name.toUpperCase(), 5, 45.5, 30, 9.5, upColor(live, FAMILY.clear.bright, DIM), {
+			halign: 'left',
+			size: 92,
+		}),
+		label('position', expression(local('position')), 36, 45.5, 31, 9.5, WHITE, { halign: 'right', size: 100 }),
 		// The section in its own color; without sections, the presentation's name on a quiet pill.
 		box('pill', 5, 57, 62, 10.5, expression(local('color')), { radius: 5.25, enabled: hasLabel, name: 'Section pill' }),
 		label('section', expression(local('label')), 7, 57.4, 58, 10, 0x0b0b0b, { size: 88, enabled: hasLabel }),
 	]
 	const variables = [
-		localValue('picture', 'slide_picture', { which }),
-		localValue('words', 'show_value', { field: live ? 'text' : 'next_text' }),
+		...pictureValues(live),
 		localValue('position', 'show_value', { field: live ? 'position' : 'next_position' }),
 		localValue('label', 'show_value', { field: live ? 'label' : 'next_label' }),
 		localValue('color', 'show_value', { field: live ? 'section_color' : 'next_section_color' }),
 	]
 	const text = live
-		? `NOW $(${LABEL}:slide_number) / $(${LABEL}:slide_count)\\n$(${LABEL}:section_name)`
+		? `CURRENT $(${LABEL}:slide_number) / $(${LABEL}:slide_count)\\n$(${LABEL}:section_name)`
 		: `NEXT\\n$(${LABEL}:next_section_name)`
 	return alternatives(layered(`Slide: ${name}`, elements, steps, [], variables), simple(`Slide: ${name}`, text, steps))
+}
+
+/** The picture as big as the key allows, with Current or Next under it. */
+function pictureOnly(which: 'live' | 'next'): Preset {
+	const live = which === 'live'
+	const kind = live ? 'Current' : 'Next'
+	const name = `Slide: ${kind} picture`
+	const steps = slideSteps(live)
+	const elements = [
+		tileBase(),
+		...picture(live, 2, 6, 68, 39),
+		label('kind', kind.toUpperCase(), 4, 50, 64, 13, upColor(live, FAMILY.clear.bright, DIM), { size: 92 }),
+	]
+	return alternatives(
+		layered(name, elements, steps, [], pictureValues(live)),
+		simple(name, live ? `$(${LABEL}:slide_text)` : `$(${LABEL}:next_slide_text)`, steps),
+	)
+}
+
+/** The current or next section's name; the current one fills with the section's color. */
+function sectionNow(which: 'live' | 'next'): Preset {
+	const live = which === 'live'
+	const kind = live ? 'Current' : 'Next'
+	const steps = slideSteps(live)
+	const color = expression(local('color'))
+	// Only the current section fills, and only while a slide is up.
+	const filled = live ? `${local('name')} != ''` : 'false'
+	const pick = (on: number, off: number): Expression => expression(`${filled} ? ${on} : ${off}`)
+	const elements = [
+		tileBase(
+			expression(`${filled} ? ${local('color')} : ${TILE}`),
+			expression(`${filled} ? ${local('color')} : ${TILE_EDGE}`),
+		),
+		label('kind', kind.toUpperCase(), 4, 7, 64, 9, pick(0x0b0b0b, DIM), { size: 80, name: 'Current or Next' }),
+		label('name', expression(local('name')), 4, 20, 64, 30, pick(0x0b0b0b, WHITE), { size: 46, name: 'Section' }),
+		box('bar', 8, 55, 56, 5, color, {
+			radius: 2.5,
+			enabled: live ? false : expression(`${local('name')} != ''`),
+			name: 'Section color',
+		}),
+	]
+	const variables = [
+		localValue('name', 'show_value', { field: live ? 'label' : 'next_section' }),
+		localValue('color', 'show_value', { field: live ? 'section_color' : 'next_section_color' }),
+	]
+	const name = `Slide: ${kind} section`
+	return alternatives(
+		layered(name, elements, steps, [], variables),
+		simple(name, `${kind.toUpperCase()}\\n$(${LABEL}:${live ? 'section_name' : 'next_section_name'})`, steps),
+	)
+}
+
+/** A number in big type with a caption under it: the slide count, or the slides left. */
+function count(field: 'position' | 'slides_left', title: string): Preset {
+	const name = `Slide: ${title}`
+	const elements = [
+		tileBase(),
+		label('value', expression(local('value')), 4, 8, 64, 34, WHITE, { size: 100, name: 'Number' }),
+		caption(title, DIM),
+	]
+	const variable =
+		field === 'position' ? `$(${LABEL}:slide_number) / $(${LABEL}:slide_count)` : `$(${LABEL}:slides_left)`
+	return alternatives(
+		layered(name, elements, press(), [], [localValue('value', 'show_value', { field })]),
+		simple(name, `${variable}\\n${title}`, press()),
+	)
 }
 
 /** A section button: it takes the name and color of section N of whatever presentation is live. */
@@ -225,6 +315,12 @@ export function showPresets(state: SlidesState): { sections: Section[]; presets:
 		slide_next: nav('next'),
 		slide_now: thumb('live'),
 		slide_upcoming: thumb('next'),
+		slide_current_picture: pictureOnly('live'),
+		slide_next_picture: pictureOnly('next'),
+		slide_current_section: sectionNow('live'),
+		slide_next_section: sectionNow('next'),
+		slide_position: count('position', 'Slide'),
+		slides_left: count('slides_left', 'Slides Left'),
 		service_item_previous: tile({
 			name: 'Service: Previous item',
 			family: 'go',
@@ -253,7 +349,7 @@ export function showPresets(state: SlidesState): { sections: Section[]; presets:
 			icon: 'x',
 			label: 'Clear All',
 			steps: press({ actionId: 'clear_all', options: {} }),
-			look: 'always',
+			lit: { feedbackId: 'live', options: { target: 'anything' } },
 		}),
 		clear_slides: clearTarget('slides', 'Slide', 'type'),
 		clear_media: clearTarget('media', 'Media', 'image'),
@@ -286,8 +382,22 @@ export function showPresets(state: SlidesState): { sections: Section[]; presets:
 					id: 'slides_move',
 					type: 'simple',
 					name: 'Slides',
-					description: 'Now and Next show the slide picture from MxU Slides with API 1.1 or newer.',
+					description: 'Current and Next show the slide picture from MxU Slides with API 1.1 or newer.',
 					presets: ['slide_previous', 'slide_next', 'slide_now', 'slide_upcoming'],
+				},
+				{
+					id: 'slides_info',
+					type: 'simple',
+					name: 'One thing each',
+					description: 'The picture, the section, the slide number or the slides left, each on its own button.',
+					presets: [
+						'slide_current_picture',
+						'slide_next_picture',
+						'slide_current_section',
+						'slide_next_section',
+						'slide_position',
+						'slides_left',
+					],
 				},
 				{
 					id: 'slides_sections',

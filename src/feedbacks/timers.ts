@@ -2,7 +2,7 @@ import type { CompanionFeedbackDefinitions, DropdownChoice } from '@companion-mo
 import type { TimerStatus } from '../api/types.js'
 import { Choices, text, type SlidesContext } from '../context.js'
 import { FAMILY } from '../style.js'
-import { formatClock, timerProgress, timerState, timerValue, wholeSeconds } from '../time.js'
+import { formatClock, timerIsTicking, timerProgress, timerState, timerValue, wholeSeconds } from '../time.js'
 
 export type TimerFeedbacks = {
 	timer_state: { type: 'boolean'; options: { timer: string; state: string } }
@@ -62,7 +62,10 @@ export function timerFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 				if (!timer) return false
 				const wanted = text(options.state)
 				const current = timerState(timer, state.now())
-				if (wanted === 'running') return timer.running || (current !== 'idle' && current !== 'paused')
+				// Running and paused go by the clock, not the colors: a countdown paused inside its
+				// warning is paused, so its Start / Pause key offers Resume.
+				if (wanted === 'running') return timerIsTicking(timer)
+				if (wanted === 'paused') return !timerIsTicking(timer) && current !== 'idle'
 				return current === wanted
 			},
 		},

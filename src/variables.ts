@@ -2,7 +2,7 @@ import type { CompanionVariableDefinitions } from '@companion-module/base'
 import type { MixerKind } from './api/types.js'
 import { videoRow } from './actions/media.js'
 import { meterValue } from './feedbacks/audio.js'
-import { slideNumber } from './feedbacks/show.js'
+import { showValue, slideNumber } from './feedbacks/show.js'
 import { captureClock, inCharge } from './feedbacks/system.js'
 import { formatDb, stripDb, stripState, type SlidesState } from './state.js'
 import {
@@ -75,7 +75,7 @@ function entries(state: SlidesState, clock: number): Entry[] {
 	add('deck_name', 'Live presentation name', live?.presentationName)
 	add('slide_number', 'Live slide number (the first slide is 1)', live ? slideNumber(state) : '')
 	add('slide_count', 'Slides in the live presentation', live?.slideCount)
-	add('slides_left', 'Slides left after the live one', live?.slideCount ? live.slideCount - slideNumber(state) : '')
+	add('slides_left', 'Slides left after the live one', showValue(state, 'slides_left'))
 	add('slide_name', 'Live slide name', live?.slideName)
 	add('slide_text', 'Live slide text', live?.text)
 	add('slide_notes', 'Live slide notes', live?.notes)
@@ -136,7 +136,7 @@ function entries(state: SlidesState, clock: number): Entry[] {
 			add(`${id}_name`, `${label}: name`, strip.name)
 			add(`${id}_db`, `${label}: level in dB`, formatDb(stripDb(strip)))
 			add(`${id}_muted`, `${label}: muted`, strip.muted)
-			if (kind === 'input') add(`${id}_on_air`, `${label}: On Air`, stripState(strip) === 'on')
+			if (kind === 'input') add(`${id}_on`, `${label}: On`, stripState(strip) === 'on')
 			add(`${id}_meter`, `${label}: meter level in dB`, meterValue(state, kind, strip.id, 'max'))
 		}
 	}

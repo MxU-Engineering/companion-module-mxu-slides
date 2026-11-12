@@ -34,7 +34,7 @@ const READS: Record<Aspect, FeedbackId[]> = {
 	service: ['show_value'],
 	confidence: ['confidence_layout'],
 	timers: ['timer_state', 'timer_value'],
-	music: ['live', 'music_playing'],
+	music: ['live', 'music_playing', 'music_paused'],
 	transport: ['video_playing', 'video_value'],
 	outputs: ['output_preset_active'],
 	scheduler: ['scheduler_on', 'trigger_enabled'],

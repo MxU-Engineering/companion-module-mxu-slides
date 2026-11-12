@@ -219,6 +219,12 @@ describe('presets', () => {
 			'slide_next',
 			'slide_now',
 			'slide_upcoming',
+			'slide_current_picture',
+			'slide_next_picture',
+			'slide_current_section',
+			'slide_next_section',
+			'slide_position',
+			'slides_left',
 			'section_1',
 			'section_8',
 			'clear_all',
@@ -234,6 +240,30 @@ describe('presets', () => {
 		assert.ok(ids.includes('confidence_screen-stage_built-in'))
 		assert.ok(ids.includes('confidence_screen-stage_layout-lyrics'))
 		assert.ok(ids.includes('trigger_trigger-preservice'))
+	})
+
+	it('says Current and Next, never Now, and an input that is on says ON', () => {
+		const text = JSON.stringify(presets)
+		assert.doesNotMatch(text, /\bNOW\b|\bNow\b/)
+		assert.match(text, /Slide: Current/)
+		assert.doesNotMatch(text, /ON AIR/)
+		const inputs = Object.keys(presets).filter((id) => /^input_.*_(strip|dial)$/.test(id))
+		assert.ok(inputs.length > 0)
+		for (const id of inputs) assert.match(JSON.stringify(presets[id]), /"onLabel":"ON"/)
+	})
+
+	it('keeps Mute All grey until every output is muted, then fills it red', () => {
+		const rich = variants(presets.mixer_mute_all)[0]
+		assert.equal(rich.feedbacks[0].feedbackId, 'output_muted')
+		const overrides = rich.feedbacks[0].styleOverrides as {
+			elementId: string
+			elementProperty: string
+			override: { value: unknown }
+		}[]
+		assert.ok(
+			overrides.some((o) => o.elementId === 'tile' && o.elementProperty === 'color' && o.override.value === 0xff453a),
+		)
+		assert.doesNotMatch(JSON.stringify(rich.elements), /volume-x\.audio/)
 	})
 
 	it('groups overlays by their library folder, so packs that reuse a name can be told apart', () => {
@@ -281,6 +311,37 @@ describe('presets', () => {
 			empty.sections.some((section) => section.id === 'timers' || section.id === 'mixer' || section.id === 'combos'),
 			false,
 		)
+	})
+
+	it('draws a key that turns on grey at rest and an anytime action plain white, never a color', () => {
+		const keyOf = new Map(Object.entries(ICONS).map(([key, image]) => [image, key]))
+		for (const [id, preset] of Object.entries(presets)) {
+			const rich = variants(preset)[0]
+			for (const element of rich.elements ?? []) {
+				const shown = element as { type: string; id?: string; enabled?: unknown; base64Image?: unknown }
+				if (shown.type !== 'image' || shown.id === 'picture') continue
+				assert.equal(typeof shown.base64Image, 'string', `${id}: ${shown.id} has a glyph`)
+				// Color only shows once something is on; at rest a key is grey (off) or white (anytime).
+				if (shown.enabled === false || typeof shown.enabled === 'object') continue
+				const key = keyOf.get(shown.base64Image as string) ?? ''
+				assert.match(key, /\.(rest|dim|action)$|\.(dark|white)$/, `${id}: ${key} at rest`)
+			}
+		}
+		assert.match(
+			keyOf.get(
+				String(
+					variants(presets['timer_timer-sermon_add_1m'])[0].elements?.find(
+						(e) => (e as { type: string }).type === 'image',
+					)?.base64Image,
+				),
+			) ?? '',
+			/^plus\.action$/,
+		)
+		assert.deepEqual(variants(presets.clear_all)[0].feedbacks[0].options, { target: 'anything' })
+		// The current section fills, and Current goes red, only while a slide is up.
+		const sectionTile = (variants(presets.slide_current_section)[0].elements ?? [])[0] as { color?: { value?: string } }
+		assert.match(sectionTile.color?.value ?? '', /!= ''/)
+		assert.match(JSON.stringify(variants(presets.slide_current_picture)[0].elements), /\$\(local:up\) != ''/)
 	})
 
 	it('holds only glyphs that some preset can draw', () => {

@@ -264,16 +264,16 @@ export function audioActions(ctx: SlidesContext, choices: Choices): CompanionAct
 			},
 		},
 		input_on_air: {
-			name: 'Input: On Air',
-			description: 'The on-air switch of an audio input in the mixer.',
+			name: 'Input: On / Off',
+			description: 'The on/off switch of an audio input in the mixer.',
 			options: [
 				stripOption('input', false),
-				{ id: 'mode', type: 'dropdown', label: 'On Air', choices: ON_OFF_TOGGLE, default: 'toggle' },
+				{ id: 'mode', type: 'dropdown', label: 'Switch', choices: ON_OFF_TOGGLE, default: 'toggle' },
 			],
 			callback: async ({ options }) => {
 				const strip = text(options.strip)
 				const enabled = resolveToggle(options.mode, !!ctx.state.strip('input', strip)?.enabled)
-				await change('Input: On Air', 'input', strip, () => ({ enabled }))
+				await change('Input: On / Off', 'input', strip, () => ({ enabled }))
 			},
 		},
 		input_mute: mute('input'),

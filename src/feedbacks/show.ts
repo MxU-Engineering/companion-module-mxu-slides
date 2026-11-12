@@ -85,6 +85,7 @@ const SHOW_FIELDS: DropdownChoice<string>[] = [
 	{ id: 'deck', label: 'Presentation name' },
 	{ id: 'slide_number', label: 'Slide number' },
 	{ id: 'slide_count', label: 'Slide count' },
+	{ id: 'slides_left', label: 'Slides left after the current one' },
 	{ id: 'slide_name', label: 'Slide name' },
 	{ id: 'text', label: 'Slide text' },
 	{ id: 'next_text', label: 'Next slide text' },
@@ -115,6 +116,8 @@ export function showValue(state: SlidesState, field: string): string | number {
 			return slideNumber(state)
 		case 'slide_count':
 			return count
+		case 'slides_left':
+			return live && count ? count - slideNumber(state) : ''
 		case 'slide_name':
 			return live?.slideName ?? ''
 		case 'text':

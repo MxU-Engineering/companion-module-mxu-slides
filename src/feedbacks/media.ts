@@ -2,12 +2,13 @@ import type { CompanionFeedbackDefinitions, DropdownChoice } from '@companion-mo
 import { VIDEO_TARGETS, videoRow } from '../actions/media.js'
 import { Choices, text, type SlidesContext } from '../context.js'
 import type { SlidesState } from '../state.js'
-import { FAMILY } from '../style.js'
+import { FAMILY, TRANSPORT } from '../style.js'
 import { clamp01, formatClock, transportPosition } from '../time.js'
 
 export type MediaFeedbacks = {
 	video_playing: { type: 'boolean'; options: { target: string } }
 	music_playing: { type: 'boolean'; options: { playlist: string } }
+	music_paused: { type: 'boolean'; options: Record<string, never> }
 	video_input_live: { type: 'boolean'; options: { input: string } }
 	timeline_playing: { type: 'boolean'; options: Record<string, never> }
 	video_value: { type: 'value'; options: { target: string; field: string } }
@@ -69,6 +70,17 @@ export function mediaFeedbacks(ctx: SlidesContext, choices: Choices): CompanionF
 				const wanted = text(options.playlist)
 				const buses = state.audio?.buses ?? []
 				return buses.some((bus) => bus.playing && (wanted === ANY || wanted === '' || bus.playlistId === wanted))
+			},
+		},
+		music_paused: {
+			type: 'boolean',
+			name: 'Music is paused',
+			description: 'True while music is loaded but not playing.',
+			defaultStyle: { bgcolor: TRANSPORT.paused, color: 0x000000 },
+			options: [],
+			callback: () => {
+				const buses = state.audio?.buses ?? []
+				return buses.length > 0 && !buses.some((bus) => bus.playing)
 			},
 		},
 		video_input_live: {

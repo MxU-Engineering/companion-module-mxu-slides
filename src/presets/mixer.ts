@@ -2,19 +2,22 @@ import type { CompanionPresetSection } from '@companion-module/base'
 import type { MixerKind } from '../api/types.js'
 import type { ModuleSchema } from '../main.js'
 import type { SlidesState } from '../state.js'
-import { FAMILY, MUTED_TILE, TILE, TILE_EDGE } from '../style.js'
+import { DIM, FAMILY, MUTED_TILE, TILE, TILE_EDGE } from '../style.js'
 import { stripVariable } from '../variables.js'
 import {
 	alternatives,
+	caption,
 	expression,
+	glyph,
 	LABEL,
 	layered,
 	local,
 	localValue,
 	press,
+	set,
 	simple,
-	tile,
 	tileBase,
+	when,
 	whenSimple,
 	type Element,
 	type Lit,
@@ -82,7 +85,7 @@ function mutedFeedback(kind: MixerKind, strip: string): Lit {
 
 /**
  * A mixer strip on a button: meter, fader, name, level and a pill. An input's button switches
- * it On Air; a mix or an output's button mutes it. The dial version rides the level instead.
+ * it on or off; a mix or an output's button mutes it. The dial version rides the level instead.
  */
 function strip(state: SlidesState, kind: MixerKind, id: string, dial: boolean): Preset {
 	const stereo = kind !== 'input'
@@ -103,7 +106,7 @@ function strip(state: SlidesState, kind: MixerKind, id: string, dial: boolean): 
 				name: expression(local('name')),
 				level: expression(local('level')),
 				state: expression(local('state')),
-				onLabel: kind === 'input' ? 'ON AIR' : 'ON',
+				onLabel: 'ON',
 				stereo,
 				meterLeft: expression(local('meterLeft')),
 				meterRight: expression(local('meterRight')),
@@ -143,8 +146,7 @@ export function mixerPresets(state: SlidesState): { sections: Section[]; presets
 			id: `mixer_${kind}`,
 			type: 'simple',
 			name: plural,
-			description:
-				kind === 'input' ? 'Press to switch the input On Air or off.' : `Press to mute or unmute the ${kind}.`,
+			description: kind === 'input' ? 'Press to switch the input on or off.' : `Press to mute or unmute the ${kind}.`,
 			presets: buttons,
 		})
 		groups.push({
@@ -156,15 +158,34 @@ export function mixerPresets(state: SlidesState): { sections: Section[]; presets
 		})
 	}
 	if (state.audioOutputs.length) {
-		presets.mixer_mute_all = tile({
-			name: 'Mute every output',
-			family: 'audio',
-			litFamily: 'clear',
-			icon: 'volume-x',
-			label: 'Mute All',
-			steps: press({ actionId: 'output_mute', options: { strip: 'all', mode: 'toggle' } }),
-			lit: { feedbackId: 'output_muted', options: { strip: 'all' } },
-		})
+		// Grey while nothing is muted (a colored speaker read as already muted); red once every output is.
+		const red = FAMILY.clear
+		const lit = { feedbackId: 'output_muted' as const, options: { strip: 'all' } }
+		const steps = press({ actionId: 'output_mute', options: { strip: 'all', mode: 'toggle' } })
+		presets.mixer_mute_all = alternatives(
+			layered(
+				'Mute every output',
+				[
+					tileBase(),
+					glyph('glyph', 'volume-x.rest'),
+					glyph('glyphLit', 'volume-x.clear.ink', false),
+					caption('Mute All', DIM),
+				],
+				steps,
+				[
+					when(lit, [
+						set('tile', 'color', red.bright),
+						set('tile', 'borderColor', red.bright),
+						set('glyph', 'enabled', false),
+						set('glyphLit', 'enabled', true),
+						set('caption', 'color', red.ink),
+					]),
+				],
+			),
+			simple('Mute every output', 'Mute All', steps, [whenSimple(lit, { bgcolor: red.bright, color: red.ink })], {
+				color: DIM,
+			}),
+		)
 		groups.push({ id: 'mixer_all', type: 'simple', name: 'Everything', presets: ['mixer_mute_all'] })
 	}
 	if (!groups.length) return { sections: [], presets }
